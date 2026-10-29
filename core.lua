@@ -65,6 +65,9 @@ function Core.bindCharacter(c)
     Core.Hum = c:WaitForChild("Humanoid")
     Core.SavedCollide = {}
     Core.NoclipActive = false
+    if Core.settings and Core.settings.noclip then
+        task.defer(Core.enforceNoclip)
+    end
 end
 if LocalPlayer.Character then Core.bindCharacter(LocalPlayer.Character) end
 LocalPlayer.CharacterAdded:Connect(Core.bindCharacter)
@@ -83,12 +86,15 @@ function Core.setNoclip(enabled)
             if part and part.Parent then part.CanCollide = state end
         end
         Core.SavedCollide = {}
-        if Core.Char then
-            for _, p in ipairs(Core.Char:GetDescendants()) do
-                if p:IsA("BasePart") and Core.SavedCollide[p] == nil then
-                    p.CanCollide = true
-                end
-            end
+    end
+end
+
+function Core.enforceNoclip()
+    if not Core.Char or not Core.Char.Parent then return end
+    for _, p in ipairs(Core.Char:GetDescendants()) do
+        if p:IsA("BasePart") then
+            if Core.SavedCollide[p] == nil then Core.SavedCollide[p] = p.CanCollide end
+            if p.CanCollide then p.CanCollide = false end
         end
     end
 end
