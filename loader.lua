@@ -7,7 +7,7 @@ local base = "https://raw.githubusercontent.com/DrexGhost/Survive-the-Killer/mai
 
 local fileList = {
     "core.lua", "gui.lua", "esp_display.lua",
-    "main.lua", "helper.lua", "esp.lua", "movement.lua", "settings.lua"
+    "main.lua", "helper.lua", "esp.lua", "farm.lua", "movement.lua", "settings.lua"
 }
 local total = #fileList
 
@@ -169,6 +169,7 @@ local tabs = {
     {name = "main.lua", fn = compile(sources["main.lua"])},
     {name = "helper.lua", fn = compile(sources["helper.lua"])},
     {name = "esp.lua", fn = compile(sources["esp.lua"]), extra = ESPDisplay},
+    {name = "farm.lua", fn = compile(sources["farm.lua"])},
     {name = "movement.lua", fn = compile(sources["movement.lua"])},
     {name = "settings.lua", fn = compile(sources["settings.lua"])},
 }
