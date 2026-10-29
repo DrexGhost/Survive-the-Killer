@@ -65,9 +65,9 @@ local function build()
                 if p ~= LocalPlayer and p.Character then
                     local role = Core.getRole(p)
                     if role == "Killer" and Core.settings.espKiller then
-                        ESPDisplay.add(p.Character, {color = T.red, name = p.Name})
+                        ESPDisplay.add(p.Character, {color = T.red, name = p.Name, fillTransparency = 0.55, outlineTransparency = 0})
                     elseif role == "Innocent" and Core.settings.espInnocent then
-                        ESPDisplay.add(p.Character, {color = T.white, name = p.Name})
+                        ESPDisplay.add(p.Character, {color = T.white, name = p.Name, fillTransparency = 0.55, outlineTransparency = 0})
                     else
                         ESPDisplay.remove(p.Character)
                     end
@@ -82,7 +82,14 @@ local function build()
                 for _, obj in ipairs(Core.getLootItems()) do
                     if obj and obj.Parent then
                         seen[obj] = true
-                        ESPDisplay.add(obj, {color = T.green, distance = true})
+                        ESPDisplay.add(obj, {
+                            color = T.green,
+                            distance = true,
+                            fillTransparency = 0.25,
+                            outlineTransparency = 0,
+                            outlineColor = Color3.fromRGB(0, 255, 80),
+                            depthMode = Enum.HighlightDepthMode.AlwaysOnTop,
+                        })
                     end
                 end
                 for obj in pairs(trackedItems) do
