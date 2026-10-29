@@ -22,7 +22,7 @@ function ESPDisplay.add(adornee, opts)
     end
 
     local h = Instance.new("Highlight")
-    h.Name = "STKESP"
+    h.Name = "NexusXESP"
     h.FillColor = color
     h.FillTransparency = 0.55
     h.OutlineColor = color
@@ -32,7 +32,7 @@ function ESPDisplay.add(adornee, opts)
     h.Parent = PlayerGui
 
     local bb = Instance.new("BillboardGui")
-    bb.Name = "STKESPBB"
+    bb.Name = "NexusXESPBB"
     bb.Adornee = adornee
     bb.Size = UDim2.new(0, 200, 0, 40)
     bb.StudsOffset = Vector3.new(0, 3, 0)
