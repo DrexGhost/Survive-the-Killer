@@ -121,8 +121,8 @@ versionLabel.ZIndex = 4
 versionLabel.Parent = TopBar
 
 local closeBtn = Instance.new("TextButton")
-closeBtn.Size = UDim2.new(0, 26, 0, 26)
-closeBtn.Position = UDim2.new(1, -34, 0.5, -13)
+closeBtn.Size = UDim2.new(0, 34, 0, 34)
+closeBtn.Position = UDim2.new(1, -46, 0.5, -17)
 closeBtn.BackgroundColor3 = Color3.fromRGB(60, 30, 40)
 closeBtn.BorderSizePixel = 0
 closeBtn.Text = "×"
