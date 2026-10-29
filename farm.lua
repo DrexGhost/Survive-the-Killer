@@ -1,5 +1,7 @@
 local Core, GUI = ...
 local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
 
 local function build()
     local tab = GUI.makeTab("Farm", 4, "combat")
@@ -31,6 +33,29 @@ local function build()
         Core.settings.farmSpeed = v
     end, "farmSpeed")
 
+    GUI.makeToggle(page, "Ignore Murder", "Не лететь к мусору рядом с убийцей", Core.settings.ignoreMurder, 4, function(v)
+        Core.settings.ignoreMurder = v
+    end, "ignoreMurder")
+
+    GUI.makeSlider(page, "Ignore Radius", 1, 100, Core.settings.ignoreMurderRadius or 10, 5, function(v)
+        Core.settings.ignoreMurderRadius = v
+    end, "ignoreMurderRadius")
+
+    local function getKillerPositions()
+        local positions = {}
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer and p.Character then
+                if Core.getRole(p) == "Killer" then
+                    local hrp = p.Character:FindFirstChild("HumanoidRootPart")
+                    if hrp then
+                        table.insert(positions, hrp.Position)
+                    end
+                end
+            end
+        end
+        return positions
+    end
+
     RunService.Stepped:Connect(function()
         if not Core.settings.autoFarmGarbage then return end
 
@@ -49,6 +74,12 @@ local function build()
             bodyVel.Parent = Core.HRP
         end
 
+        local killerPositions = nil
+        if Core.settings.ignoreMurder then
+            killerPositions = getKillerPositions()
+        end
+        local ignoreRadius = Core.settings.ignoreMurderRadius or 10
+
         local items = Core.getLootItems()
         local hrpPos = Core.HRP.Position
         local nearestPos, nearestDist = nil, math.huge
@@ -63,9 +94,20 @@ local function build()
                     if ok then pos = p end
                 end
                 if pos then
-                    local d = (pos - hrpPos).Magnitude
-                    if d < nearestDist then
-                        nearestPos, nearestDist = pos, d
+                    local skip = false
+                    if killerPositions then
+                        for _, kPos in ipairs(killerPositions) do
+                            if (pos - kPos).Magnitude <= ignoreRadius then
+                                skip = true
+                                break
+                            end
+                        end
+                    end
+                    if not skip then
+                        local d = (pos - hrpPos).Magnitude
+                        if d < nearestDist then
+                            nearestPos, nearestDist = pos, d
+                        end
                     end
                 end
             end
