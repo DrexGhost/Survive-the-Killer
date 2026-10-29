@@ -225,10 +225,22 @@ end
 function Core.isItem(obj)
     if not obj then return false end
     local ok, hasTag = pcall(function() return obj:HasTag("LootSpawn") end)
-    if ok and hasTag then return true end
+    if ok and hasTag then
+        local okLoot, loot = pcall(function() return obj:GetAttribute("Loot") end)
+        if okLoot and typeof(loot) == "string" then
+            if loot == "" then return false end
+            if #obj:GetChildren() == 0 then return false end
+        end
+        return true
+    end
     local okLoot, loot = pcall(function() return obj:GetAttribute("Loot") end)
     if okLoot and typeof(loot) == "string" and loot ~= "" then return true end
-    if obj.Parent and typeof(obj.Parent.Name) == "string" and string.find(string.lower(obj.Parent.Name), "lootspawn", 1, true) then return true end
+    if obj.Parent and typeof(obj.Parent.Name) == "string" and string.find(string.lower(obj.Parent.Name), "lootspawn", 1, true) then
+        local okL2, loot2 = pcall(function() return obj:GetAttribute("Loot") end)
+        if okL2 and typeof(loot2) == "string" and loot2 == "" then return false end
+        if #obj:GetChildren() == 0 then return false end
+        return true
+    end
     local n = string.lower(obj.Name)
     for _, pat in ipairs(Core.itemPatterns) do
         if string.find(n, pat, 1, true) then return true end
@@ -240,14 +252,20 @@ function Core.getLootItems()
     local list = {}
     local seen = {}
 
+    local function push(obj)
+        if not obj or not obj.Parent or seen[obj] then return end
+        local okLoot, loot = pcall(function() return obj:GetAttribute("Loot") end)
+        if okLoot and typeof(loot) == "string" then
+            if loot == "" then return end
+            if #obj:GetChildren() == 0 then return end
+        end
+        seen[obj] = true
+        table.insert(list, obj)
+    end
+
     local ok, tagged = pcall(function() return CollectionService:GetTagged("LootSpawn") end)
     if ok and type(tagged) == "table" then
-        for _, obj in ipairs(tagged) do
-            if obj and obj.Parent and not seen[obj] then
-                seen[obj] = true
-                table.insert(list, obj)
-            end
-        end
+        for _, obj in ipairs(tagged) do push(obj) end
     end
 
     local function scanFolder(folder)
@@ -255,8 +273,10 @@ function Core.getLootItems()
             if not seen[child] and (child:IsA("BasePart") or child:IsA("Model")) then
                 local okLoot, loot = pcall(function() return child:GetAttribute("Loot") end)
                 if okLoot and typeof(loot) == "string" and loot ~= "" then
-                    seen[child] = true
-                    table.insert(list, child)
+                    if #child:GetChildren() > 0 then
+                        seen[child] = true
+                        table.insert(list, child)
+                    end
                 end
             end
         end
