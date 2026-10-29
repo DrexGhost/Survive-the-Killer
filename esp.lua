@@ -10,7 +10,7 @@ local function build()
 
     GUI.makeSectionHeader(page, "Players", 1)
 
-    GUI.makeToggle(page, "Esp Player", "Полностью выключает ESP игроков", Core.settings.espPlayers, 2, function(v)
+    GUI.makeToggle(page, "Esp Player", "Видеть игроков сквозь стены", Core.settings.espPlayers, 2, function(v)
         Core.settings.espPlayers = v
         if not v then
             for _, p in ipairs(Players:GetPlayers()) do
@@ -21,7 +21,7 @@ local function build()
         end
     end, "espPlayers")
 
-    GUI.makeToggle(page, "Esp Innocent", "Показывает обычных игроков белым", Core.settings.espInnocent, 3, function(v)
+    GUI.makeToggle(page, "Esp Innocent", "Показывать обычных игроков", Core.settings.espInnocent, 3, function(v)
         Core.settings.espInnocent = v
         if not v then
             for _, p in ipairs(Players:GetPlayers()) do
@@ -32,7 +32,7 @@ local function build()
         end
     end, "espInnocent")
 
-    GUI.makeToggle(page, "Esp Killer", "Показывает убийцу красным", Core.settings.espKiller, 4, function(v)
+    GUI.makeToggle(page, "Esp Killer", "Показывает убийцу", Core.settings.espKiller, 4, function(v)
         Core.settings.espKiller = v
         if not v then
             for _, p in ipairs(Players:GetPlayers()) do
@@ -45,7 +45,7 @@ local function build()
 
     GUI.makeSectionHeader(page, "Other", 5)
 
-    GUI.makeToggle(page, "Esp Items", "Показывает предметы зелёным", Core.settings.espItems, 6, function(v)
+    GUI.makeToggle(page, "Esp Items", "Показывать Мусор (предметы)", Core.settings.espItems, 6, function(v)
         Core.settings.espItems = v
     end, "espItems")
 
