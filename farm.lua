@@ -15,6 +15,9 @@ local function build()
     local MAX_LOOT_DISTANCE = 500
     local MAX_EXIT_DISTANCE = 500
 
+    local exitWiggleActive = false
+    local lastExitWiggleTime = 0
+
     GUI.makeToggle(page, "Auto Farm (Garbage)", "Авто фарм мусора", Core.settings.autoFarmGarbage, 2, function(v)
         Core.settings.autoFarmGarbage = v
         if v then
@@ -29,6 +32,8 @@ local function build()
                 Core.setNoclip(false)
                 Core.NoclipActive = false
             end
+            exitWiggleActive = false
+            lastExitWiggleTime = 0
         end
     end, "autoFarmGarbage")
 
@@ -312,6 +317,44 @@ local function build()
         return false
     end
 
+    local function doExitWiggle(exitPos, dirToExit)
+        if exitWiggleActive then return end
+        exitWiggleActive = true
+
+        task.spawn(function()
+            local fwd = Vector3.new(dirToExit.X, 0, dirToExit.Z)
+            if fwd.Magnitude < 0.01 then fwd = Vector3.new(0, 0, -1) end
+            fwd = fwd.Unit
+            local right = Vector3.new(-fwd.Z, 0, fwd.X)
+
+            local baseY = exitPos.Y
+            if Core.HRP and Core.HRP.Parent then
+                baseY = Core.HRP.Position.Y
+            end
+
+            local offsets = {
+                right * 5,
+                -right * 5,
+                fwd * 5,
+                -fwd * 5,
+            }
+
+            for _, off in ipairs(offsets) do
+                if not Core.HRP or not Core.HRP.Parent then break end
+                Core.HRP.CFrame = CFrame.new(Vector3.new(exitPos.X + off.X, baseY, exitPos.Z + off.Z))
+                task.wait(0.12)
+            end
+
+            if Core.HRP and Core.HRP.Parent then
+                Core.HRP.CFrame = CFrame.new(Vector3.new(exitPos.X, baseY, exitPos.Z))
+                Core.HRP.AssemblyLinearVelocity = Vector3.zero
+            end
+
+            exitWiggleActive = false
+            lastExitWiggleTime = os.clock()
+        end)
+    end
+
     local cacheKillers = {}
     local cacheExits = {}
     local cacheExitsOpen = false
@@ -349,6 +392,11 @@ local function build()
         local speed = Core.settings.farmSpeed or 100
 
         local hrpPos = Core.HRP.Position
+
+        if exitWiggleActive then
+            bodyVel.Velocity = Vector3.zero
+            return
+        end
 
         if #killerPositions > 0 then
             for _, kPos in ipairs(killerPositions) do
@@ -399,8 +447,12 @@ local function build()
                     local dToExit = flatDist(hrpPos, bestExitPos)
                     if dToExit < 5 then
                         bodyVel.Velocity = Vector3.zero
-                        Core.HRP.CFrame = CFrame.new(bestExitPos)
-                        Core.HRP.AssemblyLinearVelocity = Vector3.zero
+                        if now - lastExitWiggleTime > 2 then
+                            local dirToExit = flatDir(hrpPos, bestExitPos)
+                            Core.HRP.CFrame = CFrame.new(bestExitPos)
+                            Core.HRP.AssemblyLinearVelocity = Vector3.zero
+                            doExitWiggle(bestExitPos, dirToExit)
+                        end
                         return
                     end
 
