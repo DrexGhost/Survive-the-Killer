@@ -28,9 +28,12 @@ local function build()
     end, "walkSpeed")
 
     RunService.Stepped:Connect(function()
+        Core.syncCharacter()
+
         if Core.settings.noclip then
             Core.enforceNoclip()
         end
+
         if Core.Hum and Core.settings.speed then
             if Core.Hum.WalkSpeed ~= Core.settings.walkSpeed then
                 Core.Hum.WalkSpeed = Core.settings.walkSpeed
