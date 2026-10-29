@@ -673,6 +673,14 @@ UIS.InputEnded:Connect(function(input)
 end)
 
 closeBtn.MouseButton1Click:Connect(GUI.close)
-UIS.InputBegan:Connect(function(input, gp) if not gp and input.KeyCode == Enum.KeyCode.LeftAlt then if isOpen then GUI.close() else GUI.open() end end):Connect end)
+UIS.InputBegan:Connect(function(input, gp)
+    if not gp and input.KeyCode == Enum.KeyCode.LeftAlt then
+        if isOpen then
+            GUI.close()
+        else
+            GUI.open()
+        end
+    end
+end)
 
 return GUI
