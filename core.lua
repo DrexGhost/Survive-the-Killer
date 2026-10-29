@@ -49,6 +49,7 @@ Core.settings = {
     espInnocent = false,
     espKiller = false,
     espItems = false,
+    espExits = false,
     autoFarmGarbage = false,
     farmSpeed = 100,
     ignoreMurder = false,
