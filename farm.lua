@@ -87,9 +87,7 @@ local function build()
         return math.sqrt(dx * dx + dz * dz) < radius
     end
 
-    local detour = nil
-
-    local function pickDetourSide(hrpPos, targetPos, kPos, radius)
+    local function pickSideDir(hrpPos, targetPos, kPos)
         local toKX = kPos.X - hrpPos.X
         local toKZ = kPos.Z - hrpPos.Z
         local len = math.sqrt(toKX * toKX + toKZ * toKZ)
@@ -119,8 +117,10 @@ local function build()
             perpZ = rightDot >= 0 and rightPZ or -rightPZ
         end
 
-        return Vector3.new(kPos.X + perpX * (radius + 5), hrpPos.Y, kPos.Z + perpZ * (radius + 5))
+        return Vector3.new(perpX, 0, perpZ)
     end
+
+    local detour = nil
 
     local function clearDetour()
         detour = nil
@@ -150,37 +150,40 @@ local function build()
             local reached = distToDetour < 6
             local expired = now >= detour.expires
 
-            local targetSafe = true
-            local pathClear = true
-
             if not reached and not expired then
+                local targetSafe = true
                 for _, kPos in ipairs(killerPositions) do
                     if flatDist(detour.target, kPos) <= radius then
                         targetSafe = false
                         break
                     end
                 end
-
                 if targetSafe then
-                    for _, kPos in ipairs(killerPositions) do
-                        if lineHitsCircle(hrpPos, detour.target, kPos, radius) then
-                            pathClear = false
-                            break
-                        end
-                    end
+                    return detour.target
                 end
-            end
-
-            if targetSafe and pathClear and not reached and not expired then
-                return detour.target
+            elseif expired then
+                clearDetour()
             end
         end
 
-        local newTarget = pickDetourSide(hrpPos, targetPos, blockingKiller, radius)
+        local side = detour and detour.side
+        if not side then
+            side = pickSideDir(hrpPos, targetPos, blockingKiller)
+        end
+
+        local offset = radius + 10
+        local newTarget = Vector3.new(
+            blockingKiller.X + side.X * offset,
+            hrpPos.Y,
+            blockingKiller.Z + side.Z * offset
+        )
+
         detour = {
             target = newTarget,
-            expires = now + 2.0,
+            side = side,
+            expires = now + 3.0,
         }
+
         return newTarget
     end
 
@@ -210,8 +213,24 @@ local function build()
         local speed = Core.settings.farmSpeed or 100
         local now = os.clock()
 
-        local items = Core.getLootItems()
         local hrpPos = Core.HRP.Position
+
+        if killerPositions and #killerPositions > 0 then
+            for _, kPos in ipairs(killerPositions) do
+                if flatDist(hrpPos, kPos) < ignoreRadius then
+                    clearDetour()
+                    local escapeVec = flatDir(kPos, hrpPos)
+                    if escapeVec.Magnitude > 0.01 then
+                        bodyVel.Velocity = escapeVec * speed
+                    else
+                        bodyVel.Velocity = Vector3.zero
+                    end
+                    return
+                end
+            end
+        end
+
+        local items = Core.getLootItems()
         local nearestPos, nearestDist = nil, math.huge
 
         for _, item in ipairs(items) do
@@ -224,8 +243,8 @@ local function build()
                     if ok then pos = p end
                 end
                 if pos then
-                    local d = (pos - hrpPos).Magnitude
-                    if d <= MAX_LOOT_DISTANCE then
+                    local d3 = (pos - hrpPos).Magnitude
+                    if d3 <= MAX_LOOT_DISTANCE then
                         local skip = false
                         if killerPositions then
                             for _, kPos in ipairs(killerPositions) do
@@ -235,8 +254,11 @@ local function build()
                                 end
                             end
                         end
-                        if not skip and d < nearestDist then
-                            nearestPos, nearestDist = pos, d
+                        if not skip then
+                            local d = flatDist(pos, hrpPos)
+                            if d < nearestDist then
+                                nearestPos, nearestDist = pos, d
+                            end
                         end
                     end
                 end
@@ -245,19 +267,6 @@ local function build()
 
         if not nearestPos then
             clearDetour()
-            if killerPositions and #killerPositions > 0 then
-                local escapeVec = nil
-                for _, kPos in ipairs(killerPositions) do
-                    if flatDist(hrpPos, kPos) < ignoreRadius then
-                        escapeVec = flatDir(kPos, hrpPos)
-                        break
-                    end
-                end
-                if escapeVec and escapeVec.Magnitude > 0.01 then
-                    bodyVel.Velocity = escapeVec * speed
-                    return
-                end
-            end
             bodyVel.Velocity = Vector3.zero
             return
         end
@@ -272,16 +281,6 @@ local function build()
         local moveTarget = nearestPos
 
         if killerPositions and #killerPositions > 0 then
-            for _, kPos in ipairs(killerPositions) do
-                if flatDist(hrpPos, kPos) < ignoreRadius then
-                    local escapeVec = flatDir(kPos, hrpPos)
-                    if escapeVec.Magnitude > 0.01 then
-                        bodyVel.Velocity = escapeVec * speed
-                        return
-                    end
-                end
-            end
-
             local detourPos = updateDetour(hrpPos, nearestPos, killerPositions, ignoreRadius, now)
             if detourPos then
                 moveTarget = detourPos
