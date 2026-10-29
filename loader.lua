@@ -11,11 +11,11 @@ local fileList = {
 }
 local total = #fileList
 
-local oldLoad = PlayerGui:FindFirstChild("STK_Loading")
+local oldLoad = PlayerGui:FindFirstChild("NexusX_Loading")
 if oldLoad then oldLoad:Destroy() end
 
 local loadGui = Instance.new("ScreenGui")
-loadGui.Name = "STK_Loading"
+loadGui.Name = "NexusX_Loading"
 loadGui.ResetOnSpawn = false
 loadGui.IgnoreGuiInset = true
 loadGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
@@ -33,7 +33,7 @@ local logoLbl = Instance.new("TextLabel")
 logoLbl.Size = UDim2.new(1, 0, 0, 44)
 logoLbl.Position = UDim2.new(0, 0, 0.5, -90)
 logoLbl.BackgroundTransparency = 1
-logoLbl.Text = "STK Script"
+logoLbl.Text = "NexusX"
 logoLbl.TextColor3 = Color3.fromRGB(0, 229, 204)
 logoLbl.TextSize = 40
 logoLbl.Font = Enum.Font.GothamBlack
