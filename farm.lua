@@ -11,6 +11,7 @@ local function build()
 
     local farmHadNoclip = false
     local bodyVel = nil
+    local MAX_LOOT_DISTANCE = 500
 
     GUI.makeToggle(page, "Auto Farm (Garbage)", "Авто фарм мусора", Core.settings.autoFarmGarbage, 2, function(v)
         Core.settings.autoFarmGarbage = v
@@ -198,18 +199,18 @@ local function build()
                     if ok then pos = p end
                 end
                 if pos then
-                    local skip = false
-                    if killerPositions then
-                        for _, kPos in ipairs(killerPositions) do
-                            if (pos - kPos).Magnitude <= ignoreRadius then
-                                skip = true
-                                break
+                    local d = (pos - hrpPos).Magnitude
+                    if d <= MAX_LOOT_DISTANCE then
+                        local skip = false
+                        if killerPositions then
+                            for _, kPos in ipairs(killerPositions) do
+                                if (pos - kPos).Magnitude <= ignoreRadius then
+                                    skip = true
+                                    break
+                                end
                             end
                         end
-                    end
-                    if not skip then
-                        local d = (pos - hrpPos).Magnitude
-                        if d < nearestDist then
+                        if not skip and d < nearestDist then
                             nearestPos, nearestDist = pos, d
                         end
                     end
