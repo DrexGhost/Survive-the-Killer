@@ -2,7 +2,7 @@ local Core, GUI = ...
 local RunService = game:GetService("RunService")
 
 local function build()
-    local tab = GUI.makeTab("Movement", 4, "motion")
+    local tab = GUI.makeTab("Movement", 5, "motion")
     local page = GUI.makePage()
 
     GUI.makeSectionHeader(page, "Movement", 1)
