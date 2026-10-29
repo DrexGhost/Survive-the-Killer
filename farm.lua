@@ -27,6 +27,10 @@ local function build()
         end
     end, "autoFarmGarbage")
 
+    GUI.makeSlider(page, "Farm Speed", 16, 500, Core.settings.farmSpeed or 100, 3, function(v)
+        Core.settings.farmSpeed = v
+    end, "farmSpeed")
+
     RunService.Stepped:Connect(function()
         if not Core.settings.autoFarmGarbage then return end
         if not Core.HRP or not Core.HRP.Parent then return end
@@ -74,7 +78,8 @@ local function build()
             Core.HRP.AssemblyLinearVelocity = Vector3.zero
         else
             local dir = nearestPos - hrpPos
-            bodyVel.Velocity = dir.Unit * 500
+            local speed = Core.settings.farmSpeed or 100
+            bodyVel.Velocity = dir.Unit * speed
         end
     end)
 
