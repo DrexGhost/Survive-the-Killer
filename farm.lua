@@ -1,6 +1,7 @@
 local Core, GUI = ...
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 
 local function build()
@@ -12,6 +13,7 @@ local function build()
     local farmHadNoclip = false
     local bodyVel = nil
     local MAX_LOOT_DISTANCE = 500
+    local MAX_EXIT_DISTANCE = 500
 
     GUI.makeToggle(page, "Auto Farm (Garbage)", "Авто фарм мусора", Core.settings.autoFarmGarbage, 2, function(v)
         Core.settings.autoFarmGarbage = v
@@ -187,6 +189,129 @@ local function build()
         return newTarget
     end
 
+    local function readBool(v)
+        if typeof(v) == "boolean" then return v end
+        if typeof(v) == "string" then
+            local l = string.lower(v)
+            if l == "true" or l == "open" or l == "opened" or l == "unlocked" then return true end
+            if l == "false" or l == "closed" or l == "locked" then return false end
+        end
+        if typeof(v) == "number" then return v ~= 0 end
+        return nil
+    end
+
+    local function checkExitObj(exitObj)
+        local attrs = {"Open", "IsOpen", "Opened", "Unlocked", "Locked", "State", "Status"}
+        for _, a in ipairs(attrs) do
+            local ok, val = pcall(function() return exitObj:GetAttribute(a) end)
+            if ok and val ~= nil then
+                if a == "Locked" then
+                    local b = readBool(val)
+                    if b ~= nil then return not b end
+                else
+                    local b = readBool(val)
+                    if b ~= nil then return b end
+                end
+            end
+        end
+        for _, c in ipairs(exitObj:GetChildren()) do
+            local n = string.lower(c.Name)
+            if n == "glow" or n == "openglow" or n == "teleport" or n == "portal" then
+                if c:IsA("BasePart") and c.Transparency < 1 then return true end
+                if c:IsA("ParticleEmitter") and c.Enabled then return true end
+                if c:IsA("PointLight") and c.Enabled then return true end
+                if c:IsA("SurfaceGui") and c.Enabled then return true end
+                return true
+            end
+        end
+        for _, c in ipairs(exitObj:GetChildren()) do
+            if c:IsA("BasePart") and c.Transparency < 1 then return true end
+        end
+        return nil
+    end
+
+    local function getExitsOpen(exitObj)
+        local sources = {
+            {obj = ReplicatedStorage:FindFirstChild("MatchInfo") and ReplicatedStorage.MatchInfo:FindFirstChild("ExitsOpen")},
+            {obj = ReplicatedStorage:FindFirstChild("ExitsOpen")},
+            {obj = workspace:FindFirstChild("ExitsOpen")},
+        }
+        local cm = workspace:FindFirstChild("CurrentMap")
+        if cm then
+            table.insert(sources, {obj = cm:FindFirstChild("ExitsOpen")})
+        end
+
+        for _, s in ipairs(sources) do
+            if s.obj then
+                local ok, v = pcall(function() return s.obj.Value end)
+                if ok then
+                    local b = readBool(v)
+                    if b ~= nil then return b end
+                end
+            end
+        end
+
+        if exitObj then
+            local b = checkExitObj(exitObj)
+            if b ~= nil then return b end
+        end
+
+        return nil
+    end
+
+    local function isExit(obj)
+        if not obj or not obj.Parent then return false end
+        if not (obj:IsA("BasePart") or obj:IsA("Model")) then return false end
+        local n = obj.Name
+        if n == "ExitDoor" or n == "Exit" or n == "EscapeDoor" or n == "Escape" then return true end
+        if string.find(n, "Exit", 1, true) and not string.find(n, "ExitSign", 1, true) then return true end
+        local okA, isExitAttr = pcall(function() return obj:GetAttribute("IsExit") end)
+        if okA and isExitAttr == true then return true end
+        local okT1, hasTag1 = pcall(function() return obj:HasTag("ExitDoor") end)
+        if okT1 and hasTag1 then return true end
+        local okT2, hasTag2 = pcall(function() return obj:HasTag("Exit") end)
+        if okT2 and hasTag2 then return true end
+        return false
+    end
+
+    local function hasExitAncestor(obj)
+        local p = obj.Parent
+        while p and p ~= workspace do
+            if isExit(p) then return true end
+            p = p.Parent
+        end
+        return false
+    end
+
+    local function getExitPositions()
+        local list = {}
+        for _, obj in ipairs(workspace:GetDescendants()) do
+            if isExit(obj) and not hasExitAncestor(obj) then
+                local pos
+                if obj:IsA("BasePart") then
+                    pos = obj.Position
+                elseif obj:IsA("Model") then
+                    local ok, p = pcall(function() return obj:GetPivot().Position end)
+                    if ok then pos = p end
+                end
+                if pos then
+                    table.insert(list, pos)
+                end
+            end
+        end
+        return list
+    end
+
+    local function exitsAreOpen()
+        for _, obj in ipairs(workspace:GetDescendants()) do
+            if isExit(obj) and not hasExitAncestor(obj) then
+                local isOpen = getExitsOpen(obj)
+                if isOpen == true then return true end
+            end
+        end
+        return false
+    end
+
     RunService.Stepped:Connect(function()
         if not Core.settings.autoFarmGarbage then return end
 
@@ -205,17 +330,14 @@ local function build()
             bodyVel.Parent = Core.HRP
         end
 
-        local killerPositions = nil
-        if Core.settings.ignoreMurder then
-            killerPositions = getKillerPositions()
-        end
+        local killerPositions = getKillerPositions()
         local ignoreRadius = Core.settings.ignoreMurderRadius or 10
         local speed = Core.settings.farmSpeed or 100
         local now = os.clock()
 
         local hrpPos = Core.HRP.Position
 
-        if killerPositions and #killerPositions > 0 then
+        if #killerPositions > 0 then
             for _, kPos in ipairs(killerPositions) do
                 if flatDist(hrpPos, kPos) < ignoreRadius then
                     clearDetour()
@@ -229,6 +351,68 @@ local function build()
                 end
             end
         end
+
+        if exitsAreOpen() then
+            local exitPositions = getExitPositions()
+
+            local reachable = {}
+            for _, ePos in ipairs(exitPositions) do
+                if flatDist(hrpPos, ePos) <= MAX_EXIT_DISTANCE then
+                    table.insert(reachable, ePos)
+                end
+            end
+
+            if #reachable > 0 then
+                local bestExitPos = nil
+                local bestScore = -math.huge
+
+                for _, ePos in ipairs(reachable) do
+                    local score
+                    if #killerPositions > 0 then
+                        local minDistToKiller = math.huge
+                        for _, kPos in ipairs(killerPositions) do
+                            local d = flatDist(ePos, kPos)
+                            if d < minDistToKiller then minDistToKiller = d end
+                        end
+                        score = minDistToKiller
+                    else
+                        score = -flatDist(hrpPos, ePos)
+                    end
+                    if score > bestScore then
+                        bestScore = score
+                        bestExitPos = ePos
+                    end
+                end
+
+                if bestExitPos then
+                    local dToExit = flatDist(hrpPos, bestExitPos)
+                    if dToExit < 5 then
+                        bodyVel.Velocity = Vector3.zero
+                        Core.HRP.CFrame = CFrame.new(bestExitPos)
+                        Core.HRP.AssemblyLinearVelocity = Vector3.zero
+                        return
+                    end
+
+                    local moveTarget = bestExitPos
+                    if #killerPositions > 0 then
+                        local detourPos = updateDetour(hrpPos, bestExitPos, killerPositions, ignoreRadius, now)
+                        if detourPos then moveTarget = detourPos end
+                    else
+                        clearDetour()
+                    end
+
+                    local dir = flatDir(hrpPos, moveTarget)
+                    if dir.Magnitude < 0.01 then
+                        bodyVel.Velocity = Vector3.zero
+                        return
+                    end
+                    bodyVel.Velocity = dir * speed
+                    return
+                end
+            end
+        end
+
+        clearDetour()
 
         local items = Core.getLootItems()
         local nearestPos, nearestDist = nil, math.huge
@@ -246,7 +430,7 @@ local function build()
                     local d3 = (pos - hrpPos).Magnitude
                     if d3 <= MAX_LOOT_DISTANCE then
                         local skip = false
-                        if killerPositions then
+                        if Core.settings.ignoreMurder then
                             for _, kPos in ipairs(killerPositions) do
                                 if flatDist(pos, kPos) <= ignoreRadius then
                                     skip = true
@@ -266,7 +450,6 @@ local function build()
         end
 
         if not nearestPos then
-            clearDetour()
             bodyVel.Velocity = Vector3.zero
             return
         end
@@ -280,13 +463,11 @@ local function build()
 
         local moveTarget = nearestPos
 
-        if killerPositions and #killerPositions > 0 then
+        if #killerPositions > 0 then
             local detourPos = updateDetour(hrpPos, nearestPos, killerPositions, ignoreRadius, now)
             if detourPos then
                 moveTarget = detourPos
             end
-        else
-            clearDetour()
         end
 
         local dir = flatDir(hrpPos, moveTarget)
