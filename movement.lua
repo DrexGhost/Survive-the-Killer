@@ -27,13 +27,11 @@ local function build()
         Core.settings.walkSpeed = v
     end, "walkSpeed")
 
-    RunService.Heartbeat:Connect(function()
-        if not Core.Hum then return end
-        if Core.settings.noclip and not Core.NoclipActive then
-            Core.setNoclip(true)
-            Core.NoclipActive = true
+    RunService.Stepped:Connect(function()
+        if Core.settings.noclip then
+            Core.enforceNoclip()
         end
-        if Core.settings.speed then
+        if Core.Hum and Core.settings.speed then
             if Core.Hum.WalkSpeed ~= Core.settings.walkSpeed then
                 Core.Hum.WalkSpeed = Core.settings.walkSpeed
             end
