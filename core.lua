@@ -63,6 +63,8 @@ Core.NoclipActive = false
 Core.Char, Core.HRP, Core.Hum = nil, nil, nil
 Core.remotes = {}
 Core.itemPatterns = {"coin", "gem", "chest", "crate", "knife", "item", "loot", "pickup", "drop", "candy"}
+Core._roleCache = {}
+Core._charParts = nil
 
 function Core.bindCharacter(c)
     Core.Char = c
@@ -70,6 +72,7 @@ function Core.bindCharacter(c)
     Core.Hum = c:WaitForChild("Humanoid")
     Core.SavedCollide = {}
     Core.NoclipActive = false
+    Core._charParts = nil
     if Core.settings and Core.settings.noclip then
         task.defer(Core.enforceNoclip)
     end
@@ -84,6 +87,7 @@ function Core.syncCharacter()
         Core.Hum = char:FindFirstChild("Humanoid")
         Core.SavedCollide = {}
         Core.NoclipActive = false
+        Core._charParts = nil
     elseif not Core.HRP or not Core.HRP.Parent then
         Core.HRP = char:FindFirstChild("HumanoidRootPart")
         Core.Hum = char:FindFirstChild("Humanoid")
@@ -110,12 +114,26 @@ function Core.setNoclip(enabled)
     end
 end
 
-function Core.enforceNoclip()
+function Core._rebuildCharParts()
+    Core._charParts = {}
     if not Core.Char or not Core.Char.Parent then return end
     for _, p in ipairs(Core.Char:GetDescendants()) do
         if p:IsA("BasePart") then
+            table.insert(Core._charParts, p)
             if Core.SavedCollide[p] == nil then Core.SavedCollide[p] = p.CanCollide end
-            if p.CanCollide then p.CanCollide = false end
+        end
+    end
+end
+
+function Core.enforceNoclip()
+    if not Core.Char or not Core.Char.Parent then return end
+    if not Core._charParts then Core._rebuildCharParts() end
+    local parts = Core._charParts
+    for i = 1, #parts do
+        local p = parts[i]
+        if p.Parent and p.CanCollide then
+            if Core.SavedCollide[p] == nil then Core.SavedCollide[p] = p.CanCollide end
+            p.CanCollide = false
         end
     end
 end
@@ -236,6 +254,16 @@ function Core.getRole(player)
         if player.Character:GetAttribute("IsKiller") == true or player.Character:GetAttribute("isKiller") == true then return "Killer" end
     end
     return "Innocent"
+end
+
+function Core.getRoleCached(player)
+    if not player then return "Innocent" end
+    local now = os.clock()
+    local c = Core._roleCache[player]
+    if c and now - c.t < 1.0 then return c.v end
+    local v = Core.getRole(player)
+    Core._roleCache[player] = { v = v, t = now }
+    return v
 end
 
 function Core.findRemote(pattern)
