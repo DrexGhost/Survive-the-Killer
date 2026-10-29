@@ -1,6 +1,7 @@
 local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
 local RS = game:GetService("ReplicatedStorage")
+local CollectionService = game:GetService("CollectionService")
 
 local LocalPlayer = Players.LocalPlayer
 local Core = {}
@@ -56,7 +57,7 @@ Core.SavedCollide = {}
 Core.NoclipActive = false
 Core.Char, Core.HRP, Core.Hum = nil, nil, nil
 Core.remotes = {}
-Core.itemPatterns = {"coin", "gem", "chest", "crate", "knife", "item", "loot", "pickup", "drop"}
+Core.itemPatterns = {"coin", "gem", "chest", "crate", "knife", "item", "loot", "pickup", "drop", "candy"}
 
 function Core.bindCharacter(c)
     Core.Char = c
@@ -223,11 +224,57 @@ end
 
 function Core.isItem(obj)
     if not obj then return false end
+    local ok, hasTag = pcall(function() return obj:HasTag("LootSpawn") end)
+    if ok and hasTag then return true end
+    local okLoot, loot = pcall(function() return obj:GetAttribute("Loot") end)
+    if okLoot and typeof(loot) == "string" and loot ~= "" then return true end
+    if obj.Parent and typeof(obj.Parent.Name) == "string" and string.find(string.lower(obj.Parent.Name), "lootspawn", 1, true) then return true end
     local n = string.lower(obj.Name)
     for _, pat in ipairs(Core.itemPatterns) do
         if string.find(n, pat, 1, true) then return true end
     end
     return false
+end
+
+function Core.getLootItems()
+    local list = {}
+    local seen = {}
+
+    local ok, tagged = pcall(function() return CollectionService:GetTagged("LootSpawn") end)
+    if ok and type(tagged) == "table" then
+        for _, obj in ipairs(tagged) do
+            if obj and obj.Parent and not seen[obj] then
+                seen[obj] = true
+                table.insert(list, obj)
+            end
+        end
+    end
+
+    local function scanFolder(folder)
+        for _, child in ipairs(folder:GetChildren()) do
+            if not seen[child] and (child:IsA("BasePart") or child:IsA("Model")) then
+                local okLoot, loot = pcall(function() return child:GetAttribute("Loot") end)
+                if okLoot and typeof(loot) == "string" and loot ~= "" then
+                    seen[child] = true
+                    table.insert(list, child)
+                end
+            end
+        end
+    end
+
+    for _, top in ipairs(workspace:GetChildren()) do
+        if top:IsA("Folder") and string.find(string.lower(top.Name), "lootspawn", 1, true) then
+            scanFolder(top)
+        elseif top:IsA("Model") or top:IsA("Folder") then
+            for _, sub in ipairs(top:GetChildren()) do
+                if sub:IsA("Folder") and string.find(string.lower(sub.Name), "lootspawn", 1, true) then
+                    scanFolder(sub)
+                end
+            end
+        end
+    end
+
+    return list
 end
 
 local vu = game:GetService("VirtualUser")
