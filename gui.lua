@@ -194,7 +194,7 @@ end)
 local ICON_IDS = {
     dashboard = "7455681036",
     helper = "7239523825",
-    combat = "7919779544",
+    combat = "17173125482",
     motion = "7371992039",
     settings = "7239431239"
 }
