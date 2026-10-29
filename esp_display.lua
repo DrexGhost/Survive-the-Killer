@@ -11,11 +11,18 @@ function ESPDisplay.add(adornee, opts)
     if not adornee then return end
     opts = opts or {}
     local color = opts.color or Color3.fromRGB(255, 255, 255)
+    local fillTransparency = opts.fillTransparency or 0.5
+    local outlineTransparency = opts.outlineTransparency or 0
+    local outlineColor = opts.outlineColor or color
+    local depthMode = opts.depthMode or Enum.HighlightDepthMode.AlwaysOnTop
     local entry = ESPDisplay._entries[adornee]
 
     if entry and entry.Highlight and entry.Highlight.Parent then
         entry.Highlight.FillColor = color
-        entry.Highlight.OutlineColor = color
+        entry.Highlight.FillTransparency = fillTransparency
+        entry.Highlight.OutlineColor = outlineColor
+        entry.Highlight.OutlineTransparency = outlineTransparency
+        entry.Highlight.DepthMode = depthMode
         if entry.NameLabel then entry.NameLabel.TextColor3 = color end
         if entry.DistanceLabel then entry.DistanceLabel.TextColor3 = color end
         return
@@ -24,10 +31,10 @@ function ESPDisplay.add(adornee, opts)
     local h = Instance.new("Highlight")
     h.Name = "NexusXESP"
     h.FillColor = color
-    h.FillTransparency = 0.55
-    h.OutlineColor = color
-    h.OutlineTransparency = 0
-    h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    h.FillTransparency = fillTransparency
+    h.OutlineColor = outlineColor
+    h.OutlineTransparency = outlineTransparency
+    h.DepthMode = depthMode
     h.Adornee = adornee
     h.Parent = PlayerGui
 
