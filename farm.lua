@@ -67,47 +67,95 @@ local function build()
         return (proj - center).Magnitude < radius
     end
 
-    local function computeDirection(hrpPos, targetPos, killerPositions, radius)
-        local toTarget = targetPos - hrpPos
-        if toTarget.Magnitude < 0.01 then return Vector3.zero end
-        local dirToTarget = toTarget.Unit
+    local detour = nil
 
+    local function pickDetourSide(hrpPos, targetPos, kPos, radius)
+        local toKiller = Vector3.new(kPos.X - hrpPos.X, 0, kPos.Z - hrpPos.Z)
+        if toKiller.Magnitude < 0.01 then
+            toKiller = Vector3.new(1, 0, 0)
+        end
+        toKiller = toKiller.Unit
+
+        local leftPerp = Vector3.new(-toKiller.Z, 0, toKiller.X)
+        local rightPerp = Vector3.new(toKiller.Z, 0, -toKiller.X)
+
+        local targetFlat = Vector3.new(targetPos.X - hrpPos.X, 0, targetPos.Z - hrpPos.Z)
+        if targetFlat.Magnitude < 0.01 then targetFlat = Vector3.new(0, 0, 1) end
+        targetFlat = targetFlat.Unit
+
+        local leftDot = leftPerp:Dot(targetFlat)
+        local rightDot = rightPerp:Dot(targetFlat)
+
+        local perp
+        if math.abs(leftDot) >= math.abs(rightDot) then
+            perp = leftDot >= 0 and leftPerp or -leftPerp
+        else
+            perp = rightDot >= 0 and rightPerp or -rightPerp
+        end
+
+        return Vector3.new(kPos.X + perp.X * (radius + 5), kPos.Y, kPos.Z + perp.Z * (radius + 5))
+    end
+
+    local function clearDetour()
+        detour = nil
+    end
+
+    local function updateDetour(hrpPos, targetPos, killerPositions, radius, now)
         if not killerPositions or #killerPositions == 0 then
-            return dirToTarget
+            clearDetour()
+            return nil
         end
 
-        for _, kPos in ipairs(killerPositions) do
-            local distToKiller = (hrpPos - kPos).Magnitude
-            if distToKiller < radius then
-                local away = hrpPos - kPos
-                if away.Magnitude < 0.01 then
-                    away = Vector3.new(0, 0, 1)
-                end
-                return away.Unit
-            end
-        end
-
+        local blockingKiller = nil
         for _, kPos in ipairs(killerPositions) do
             if lineHitsCircle(hrpPos, targetPos, kPos, radius) then
-                local toKiller = kPos - hrpPos
-                local perp = Vector3.new(-toKiller.Z, 0, toKiller.X)
-                if perp.Magnitude < 0.01 then
-                    perp = Vector3.new(1, 0, 0)
-                else
-                    perp = perp.Unit
-                end
-                if perp:Dot(dirToTarget) < 0 then
-                    perp = -perp
-                end
-                local detour = kPos + perp * (radius + 5)
-                local newDir = detour - hrpPos
-                if newDir.Magnitude > 0.01 then
-                    return newDir.Unit
-                end
+                blockingKiller = kPos
+                break
             end
         end
 
-        return dirToTarget
+        if not blockingKiller then
+            clearDetour()
+            return nil
+        end
+
+        if detour then
+            local distToDetour = (hrpPos - detour.target).Magnitude
+            local reached = distToDetour < 6
+            local expired = now >= detour.expires
+
+            local targetSafe = true
+            local pathClear = true
+
+            if not reached and not expired then
+                for _, kPos in ipairs(killerPositions) do
+                    if (detour.target - kPos).Magnitude <= radius then
+                        targetSafe = false
+                        break
+                    end
+                end
+
+                if targetSafe then
+                    for _, kPos in ipairs(killerPositions) do
+                        if lineHitsCircle(hrpPos, detour.target, kPos, radius) then
+                            pathClear = false
+                            break
+                        end
+                    end
+                end
+            end
+
+            if targetSafe and pathClear and not reached and not expired then
+                return detour.target
+            end
+        end
+
+        local newTarget = pickDetourSide(hrpPos, targetPos, blockingKiller, radius)
+        detour = {
+            target = newTarget,
+            expires = now + 2.0,
+        }
+        return newTarget
     end
 
     RunService.Stepped:Connect(function()
@@ -134,6 +182,7 @@ local function build()
         end
         local ignoreRadius = Core.settings.ignoreMurderRadius or 10
         local speed = Core.settings.farmSpeed or 100
+        local now = os.clock()
 
         local items = Core.getLootItems()
         local hrpPos = Core.HRP.Position
@@ -169,6 +218,7 @@ local function build()
         end
 
         if not nearestPos then
+            clearDetour()
             if killerPositions and #killerPositions > 0 then
                 local escapeDir = nil
                 for _, kPos in ipairs(killerPositions) do
@@ -195,8 +245,32 @@ local function build()
             return
         end
 
-        local dir = computeDirection(hrpPos, nearestPos, killerPositions, ignoreRadius)
-        bodyVel.Velocity = dir * speed
+        local moveTarget = nearestPos
+
+        if killerPositions and #killerPositions > 0 then
+            for _, kPos in ipairs(killerPositions) do
+                if (hrpPos - kPos).Magnitude < ignoreRadius then
+                    local away = hrpPos - kPos
+                    if away.Magnitude < 0.01 then away = Vector3.new(0, 0, 1) end
+                    bodyVel.Velocity = away.Unit * speed
+                    return
+                end
+            end
+
+            local detourPos = updateDetour(hrpPos, nearestPos, killerPositions, ignoreRadius, now)
+            if detourPos then
+                moveTarget = detourPos
+            end
+        else
+            clearDetour()
+        end
+
+        local toTarget = moveTarget - hrpPos
+        if toTarget.Magnitude < 0.01 then
+            bodyVel.Velocity = Vector3.zero
+            return
+        end
+        bodyVel.Velocity = toTarget.Unit * speed
     end)
 
     tab.Button.MouseButton1Click:Connect(function() GUI.switchTab(tab, page) end)
