@@ -26,7 +26,7 @@ local function build()
         Core.settings.espInnocent = v
         if not v then
             for _, p in ipairs(Players:GetPlayers()) do
-                if p ~= LocalPlayer and p.Character and Core.getRole(p) == "Innocent" then
+                if p ~= LocalPlayer and p.Character and Core.getRoleCached(p) == "Innocent" then
                     ESPDisplay.remove(p.Character)
                 end
             end
@@ -37,7 +37,7 @@ local function build()
         Core.settings.espKiller = v
         if not v then
             for _, p in ipairs(Players:GetPlayers()) do
-                if p ~= LocalPlayer and p.Character and Core.getRole(p) == "Killer" then
+                if p ~= LocalPlayer and p.Character and Core.getRoleCached(p) == "Killer" then
                     ESPDisplay.remove(p.Character)
                 end
             end
@@ -236,7 +236,7 @@ local function build()
         if Core.settings.espPlayers then
             for _, p in ipairs(Players:GetPlayers()) do
                 if p ~= LocalPlayer and p.Character then
-                    local role = Core.getRole(p)
+                    local role = Core.getRoleCached(p)
                     if role == "Killer" and Core.settings.espKiller then
                         ESPDisplay.add(p.Character, {color = T.red, name = p.Name, fillTransparency = 0.55, outlineTransparency = 0})
                     elseif role == "Innocent" and Core.settings.espInnocent then
