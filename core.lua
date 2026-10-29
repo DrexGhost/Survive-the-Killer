@@ -120,12 +120,12 @@ end
 
 function Core.loadSettings()
     local ok, result = pcall(function()
-        if not LocalPlayer:FindFirstChild("STKSettings") then
+        if not LocalPlayer:FindFirstChild("NexusXSettings") then
             local ds = Instance.new("Folder")
-            ds.Name = "STKSettings"
+            ds.Name = "NexusXSettings"
             ds.Parent = LocalPlayer
         end
-        return LocalPlayer.STKSettings
+        return LocalPlayer.NexusXSettings
     end)
     if ok and result then
         Core.dataStore = result
