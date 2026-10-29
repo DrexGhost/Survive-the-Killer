@@ -56,6 +56,60 @@ local function build()
         return positions
     end
 
+    local function lineHitsCircle(a, b, center, radius)
+        local ab = b - a
+        local abLenSq = ab:Dot(ab)
+        if abLenSq < 0.0001 then return false end
+        local ac = center - a
+        local t = ac:Dot(ab) / abLenSq
+        if t <= 0 or t >= 1 then return false end
+        local proj = a + ab * t
+        return (proj - center).Magnitude < radius
+    end
+
+    local function computeDirection(hrpPos, targetPos, killerPositions, radius)
+        local toTarget = targetPos - hrpPos
+        if toTarget.Magnitude < 0.01 then return Vector3.zero end
+        local dirToTarget = toTarget.Unit
+
+        if not killerPositions or #killerPositions == 0 then
+            return dirToTarget
+        end
+
+        for _, kPos in ipairs(killerPositions) do
+            local distToKiller = (hrpPos - kPos).Magnitude
+            if distToKiller < radius then
+                local away = hrpPos - kPos
+                if away.Magnitude < 0.01 then
+                    away = Vector3.new(0, 0, 1)
+                end
+                return away.Unit
+            end
+        end
+
+        for _, kPos in ipairs(killerPositions) do
+            if lineHitsCircle(hrpPos, targetPos, kPos, radius) then
+                local toKiller = kPos - hrpPos
+                local perp = Vector3.new(-toKiller.Z, 0, toKiller.X)
+                if perp.Magnitude < 0.01 then
+                    perp = Vector3.new(1, 0, 0)
+                else
+                    perp = perp.Unit
+                end
+                if perp:Dot(dirToTarget) < 0 then
+                    perp = -perp
+                end
+                local detour = kPos + perp * (radius + 5)
+                local newDir = detour - hrpPos
+                if newDir.Magnitude > 0.01 then
+                    return newDir.Unit
+                end
+            end
+        end
+
+        return dirToTarget
+    end
+
     RunService.Stepped:Connect(function()
         if not Core.settings.autoFarmGarbage then return end
 
@@ -79,6 +133,7 @@ local function build()
             killerPositions = getKillerPositions()
         end
         local ignoreRadius = Core.settings.ignoreMurderRadius or 10
+        local speed = Core.settings.farmSpeed or 100
 
         local items = Core.getLootItems()
         local hrpPos = Core.HRP.Position
@@ -114,6 +169,21 @@ local function build()
         end
 
         if not nearestPos then
+            if killerPositions and #killerPositions > 0 then
+                local escapeDir = nil
+                for _, kPos in ipairs(killerPositions) do
+                    if (hrpPos - kPos).Magnitude < ignoreRadius then
+                        local away = hrpPos - kPos
+                        if away.Magnitude < 0.01 then away = Vector3.new(0, 0, 1) end
+                        escapeDir = away.Unit
+                        break
+                    end
+                end
+                if escapeDir then
+                    bodyVel.Velocity = escapeDir * speed
+                    return
+                end
+            end
             bodyVel.Velocity = Vector3.zero
             return
         end
@@ -122,11 +192,11 @@ local function build()
             bodyVel.Velocity = Vector3.zero
             Core.HRP.CFrame = CFrame.new(nearestPos)
             Core.HRP.AssemblyLinearVelocity = Vector3.zero
-        else
-            local dir = nearestPos - hrpPos
-            local speed = Core.settings.farmSpeed or 100
-            bodyVel.Velocity = dir.Unit * speed
+            return
         end
+
+        local dir = computeDirection(hrpPos, nearestPos, killerPositions, ignoreRadius)
+        bodyVel.Velocity = dir * speed
     end)
 
     tab.Button.MouseButton1Click:Connect(function() GUI.switchTab(tab, page) end)
