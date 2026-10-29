@@ -222,24 +222,38 @@ function Core.findRemote(pattern)
     return nil
 end
 
+function Core.isLootVisible(spot)
+    if not spot or not spot.Parent then return false end
+    for _, c in ipairs(spot:GetDescendants()) do
+        if c:IsA("BasePart") or c:IsA("Decal") or c:IsA("Texture") then
+            local ok, t = pcall(function() return c.Transparency end)
+            if ok and type(t) == "number" and t < 1 then return true end
+        elseif c:IsA("ParticleEmitter") or c:IsA("Beam") or c:IsA("Trail") then
+            local ok, e = pcall(function() return c.Enabled end)
+            if ok and e == true then return true end
+        elseif c:IsA("BillboardGui") or c:IsA("SurfaceGui") then
+            local okE, e = pcall(function() return c.Enabled end)
+            local okV, v = pcall(function() return c.Visible end)
+            if okE and e ~= false and okV and v ~= false then return true end
+        end
+    end
+    return false
+end
+
 function Core.isItem(obj)
     if not obj then return false end
     local ok, hasTag = pcall(function() return obj:HasTag("LootSpawn") end)
     if ok and hasTag then
         local okLoot, loot = pcall(function() return obj:GetAttribute("Loot") end)
-        if okLoot and typeof(loot) == "string" then
-            if loot == "" then return false end
-            if #obj:GetChildren() == 0 then return false end
-        end
-        return true
+        if okLoot and typeof(loot) == "string" and loot == "" then return false end
+        return Core.isLootVisible(obj)
     end
     local okLoot, loot = pcall(function() return obj:GetAttribute("Loot") end)
-    if okLoot and typeof(loot) == "string" and loot ~= "" then return true end
+    if okLoot and typeof(loot) == "string" and loot ~= "" then
+        return Core.isLootVisible(obj)
+    end
     if obj.Parent and typeof(obj.Parent.Name) == "string" and string.find(string.lower(obj.Parent.Name), "lootspawn", 1, true) then
-        local okL2, loot2 = pcall(function() return obj:GetAttribute("Loot") end)
-        if okL2 and typeof(loot2) == "string" and loot2 == "" then return false end
-        if #obj:GetChildren() == 0 then return false end
-        return true
+        return Core.isLootVisible(obj)
     end
     local n = string.lower(obj.Name)
     for _, pat in ipairs(Core.itemPatterns) do
@@ -254,11 +268,7 @@ function Core.getLootItems()
 
     local function push(obj)
         if not obj or not obj.Parent or seen[obj] then return end
-        local okLoot, loot = pcall(function() return obj:GetAttribute("Loot") end)
-        if okLoot and typeof(loot) == "string" then
-            if loot == "" then return end
-            if #obj:GetChildren() == 0 then return end
-        end
+        if not Core.isItem(obj) then return end
         seen[obj] = true
         table.insert(list, obj)
     end
@@ -271,12 +281,9 @@ function Core.getLootItems()
     local function scanFolder(folder)
         for _, child in ipairs(folder:GetChildren()) do
             if not seen[child] and (child:IsA("BasePart") or child:IsA("Model")) then
-                local okLoot, loot = pcall(function() return child:GetAttribute("Loot") end)
-                if okLoot and typeof(loot) == "string" and loot ~= "" then
-                    if #child:GetChildren() > 0 then
-                        seen[child] = true
-                        table.insert(list, child)
-                    end
+                if Core.isItem(child) then
+                    seen[child] = true
+                    table.insert(list, child)
                 end
             end
         end
