@@ -8,11 +8,11 @@ local TweenService = game:GetService("TweenService")
 
 local Watermark = {}
 
-local oldWm = PlayerGui:FindFirstChild("STKWatermark")
+local oldWm = PlayerGui:FindFirstChild("NexusWatermark")
 if oldWm then oldWm:Destroy() end
 
 local wmScreenGui = Instance.new("ScreenGui")
-wmScreenGui.Name = "STKWatermark"
+wmScreenGui.Name = "NexusWatermark"
 wmScreenGui.ResetOnSpawn = false
 wmScreenGui.IgnoreGuiInset = true
 wmScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
@@ -268,25 +268,35 @@ local function build()
     statsLayout.Padding = UDim.new(0, 8)
     statsLayout.Parent = statsRow
 
-    local function MakeStat(order, title)
+    local function MakeStat(order, title, iconId)
         local card = Instance.new("Frame", statsRow)
         card.Size = UDim2.new(0.5, -4, 1, 0)
         card.BackgroundColor3 = T.row
         card.BorderSizePixel = 0
         card.LayoutOrder = order
         Instance.new("UICorner", card).CornerRadius = UDim.new(0, 10)
+
+        local icon = Instance.new("ImageLabel", card)
+        icon.Size = UDim2.new(0, 18, 0, 18)
+        icon.Position = UDim2.new(0, 12, 0.5, -9)
+        icon.BackgroundTransparency = 1
+        icon.Image = "rbxassetid://" .. iconId
+        icon.ImageColor3 = T.accent
+        icon.ScaleType = Enum.ScaleType.Fit
+
         local t = Instance.new("TextLabel", card)
-        t.Size = UDim2.new(1, -20, 0, 12)
-        t.Position = UDim2.new(0, 12, 0, 10)
+        t.Size = UDim2.new(1, -44, 0, 12)
+        t.Position = UDim2.new(0, 38, 0, 10)
         t.BackgroundTransparency = 1
         t.Text = title
         t.TextColor3 = T.textMuted
         t.TextSize = 9
         t.Font = Enum.Font.GothamBold
         t.TextXAlignment = Enum.TextXAlignment.Left
+
         local v = Instance.new("TextLabel", card)
-        v.Size = UDim2.new(1, -20, 0, 20)
-        v.Position = UDim2.new(0, 12, 0, 26)
+        v.Size = UDim2.new(1, -44, 0, 20)
+        v.Position = UDim2.new(0, 38, 0, 26)
         v.BackgroundTransparency = 1
         v.Text = "0"
         v.TextColor3 = T.text
@@ -296,8 +306,8 @@ local function build()
         return v
     end
 
-    local coinsValue = MakeStat(1, "Coins:")
-    local gemsValue = MakeStat(2, "Gems:")
+    local coinsValue = MakeStat(1, "Coins:", "7397466279")
+    local gemsValue = MakeStat(2, "Gems:", "7315056164")
 
     task.spawn(function()
         while GUI.screenGui.Parent do
