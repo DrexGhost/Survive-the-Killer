@@ -33,11 +33,15 @@ local function build()
 
     RunService.Stepped:Connect(function()
         if not Core.settings.autoFarmGarbage then return end
+
+        Core.syncCharacter()
+
         if not Core.HRP or not Core.HRP.Parent then return end
 
         Core.enforceNoclip()
 
-        if not bodyVel or not bodyVel.Parent then
+        if not bodyVel or not bodyVel.Parent or bodyVel.Parent ~= Core.HRP then
+            if bodyVel then bodyVel:Destroy() end
             bodyVel = Instance.new("BodyVelocity")
             bodyVel.Name = "NexusXAutoFarm"
             bodyVel.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
