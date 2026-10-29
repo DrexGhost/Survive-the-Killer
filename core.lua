@@ -49,6 +49,7 @@ Core.settings = {
     espInnocent = false,
     espKiller = false,
     espItems = false,
+    autoFarmGarbage = false,
 }
 
 Core.toggleRefs = {}
