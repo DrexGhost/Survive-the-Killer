@@ -197,7 +197,7 @@ UIS.InputEnded:Connect(function(input)
 end)
 
 local ICON_IDS = {
-    dashboard = "7239523825",
+    dashboard = "7455681036",
     helper = "7239523825",
     combat = "7919779544",
     motion = "7371992039",
