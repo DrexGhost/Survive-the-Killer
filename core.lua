@@ -50,6 +50,7 @@ Core.settings = {
     espKiller = false,
     espItems = false,
     autoFarmGarbage = false,
+    farmSpeed = 100,
 }
 
 Core.toggleRefs = {}
