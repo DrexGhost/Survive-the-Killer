@@ -8,13 +8,13 @@ local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 local T = Core.T
 
-local oldGui = PlayerGui:FindFirstChild("STK_UI")
+local oldGui = PlayerGui:FindFirstChild("NexusX_UI")
 if oldGui then oldGui:Destroy() end
 
 local GUI = { _tabs = {}, _pages = {} }
 
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "STK_UI"
+screenGui.Name = "NexusX_UI"
 screenGui.ResetOnSpawn = false
 screenGui.IgnoreGuiInset = true
 screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
@@ -89,7 +89,7 @@ makeCorner(logoBox, 9)
 local logoText = Instance.new("TextLabel")
 logoText.Size = UDim2.new(1, 0, 1, 0)
 logoText.BackgroundTransparency = 1
-logoText.Text = "S"
+logoText.Text = "N"
 logoText.TextColor3 = Color3.fromRGB(10, 14, 24)
 logoText.TextSize = 20
 logoText.Font = Enum.Font.GothamBlack
@@ -112,7 +112,7 @@ local versionLabel = Instance.new("TextLabel")
 versionLabel.Size = UDim2.new(0, 200, 0, 14)
 versionLabel.Position = UDim2.new(0, 68, 0, 30)
 versionLabel.BackgroundTransparency = 1
-versionLabel.Text = "Swill"
+versionLabel.Text = "NexusX"
 versionLabel.TextColor3 = T.textMuted
 versionLabel.TextSize = 10
 versionLabel.Font = Enum.Font.Gotham
@@ -120,25 +120,30 @@ versionLabel.TextXAlignment = Enum.TextXAlignment.Left
 versionLabel.ZIndex = 4
 versionLabel.Parent = TopBar
 
-local closeBtn = Instance.new("TextButton")
+local closeBtn = Instance.new("ImageButton")
 closeBtn.Size = UDim2.new(0, 32, 0, 32)
 closeBtn.Position = UDim2.new(1, -44, 0.5, -16)
 closeBtn.BackgroundColor3 = T.panelHi
 closeBtn.BorderSizePixel = 0
-closeBtn.Text = "×"
-closeBtn.TextColor3 = T.textDim
-closeBtn.TextSize = 18
-closeBtn.Font = Enum.Font.GothamBold
+closeBtn.Image = "rbxassetid://4988112250"
+closeBtn.ImageColor3 = T.textDim
+closeBtn.ScaleType = Enum.ScaleType.Fit
 closeBtn.AutoButtonColor = false
 closeBtn.ZIndex = 4
 closeBtn.Parent = TopBar
 makeCorner(closeBtn, 7)
 
+local closePad = Instance.new("UIPadding", closeBtn)
+closePad.PaddingTop = UDim.new(0, 8)
+closePad.PaddingBottom = UDim.new(0, 8)
+closePad.PaddingLeft = UDim.new(0, 8)
+closePad.PaddingRight = UDim.new(0, 8)
+
 closeBtn.MouseEnter:Connect(function()
-    TweenService:Create(closeBtn, TweenInfo.new(0.15), {BackgroundColor3 = T.danger, TextColor3 = T.white}):Play()
+    TweenService:Create(closeBtn, TweenInfo.new(0.15), {BackgroundColor3 = T.danger, ImageColor3 = T.white}):Play()
 end)
 closeBtn.MouseLeave:Connect(function()
-    TweenService:Create(closeBtn, TweenInfo.new(0.15), {BackgroundColor3 = T.panelHi, TextColor3 = T.textDim}):Play()
+    TweenService:Create(closeBtn, TweenInfo.new(0.15), {BackgroundColor3 = T.panelHi, ImageColor3 = T.textDim}):Play()
 end)
 
 local Sidebar = Instance.new("Frame")
@@ -192,13 +197,11 @@ UIS.InputEnded:Connect(function(input)
 end)
 
 local ICON_IDS = {
-    dashboard = "83894654139062",
-    helper = "3650695359",
-    farm = "80653163718801",
-    ultimate = "15311960682",
-    motion = "3220768089",
-    combat = "76078853582404",
-    settings = "100589335929927"
+    dashboard = "7239523825",
+    helper = "7239523825",
+    combat = "7919779544",
+    motion = "7371992039",
+    settings = "7239431239"
 }
 
 local function buildIcon(holder, kind, color)
@@ -534,7 +537,7 @@ floatBtn.AnchorPoint = Vector2.new(0, 0.5)
 floatBtn.Position = UDim2.new(Core.settings.floatBtnPos[1] or 0, Core.settings.floatBtnPos[2] or 20, Core.settings.floatBtnPos[3] or 0.5, Core.settings.floatBtnPos[4] or 0)
 floatBtn.BackgroundColor3 = T.bg1
 floatBtn.BorderSizePixel = 0
-floatBtn.Text = "S"
+floatBtn.Text = "N"
 floatBtn.TextColor3 = T.accent
 floatBtn.TextSize = 24
 floatBtn.Font = Enum.Font.GothamBlack
