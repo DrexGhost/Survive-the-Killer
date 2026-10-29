@@ -62,7 +62,7 @@ local function build()
         local positions = {}
         for _, p in ipairs(Players:GetPlayers()) do
             if p ~= LocalPlayer and p.Character then
-                if Core.getRole(p) == "Killer" then
+                if Core.getRoleCached(p) == "Killer" then
                     local hrp = p.Character:FindFirstChild("HumanoidRootPart")
                     if hrp then
                         table.insert(positions, hrp.Position)
@@ -312,6 +312,11 @@ local function build()
         return false
     end
 
+    local cacheKillers = {}
+    local cacheExits = {}
+    local cacheExitsOpen = false
+    local lastCache = 0
+
     RunService.Stepped:Connect(function()
         if not Core.settings.autoFarmGarbage then return end
 
@@ -330,10 +335,18 @@ local function build()
             bodyVel.Parent = Core.HRP
         end
 
-        local killerPositions = getKillerPositions()
+        local now = os.clock()
+
+        if now - lastCache >= 1 then
+            lastCache = now
+            cacheKillers = getKillerPositions()
+            cacheExitsOpen = exitsAreOpen()
+            cacheExits = cacheExitsOpen and getExitPositions() or {}
+        end
+
+        local killerPositions = cacheKillers
         local ignoreRadius = Core.settings.ignoreMurderRadius or 10
         local speed = Core.settings.farmSpeed or 100
-        local now = os.clock()
 
         local hrpPos = Core.HRP.Position
 
@@ -352,11 +365,9 @@ local function build()
             end
         end
 
-        if exitsAreOpen() then
-            local exitPositions = getExitPositions()
-
+        if cacheExitsOpen and #cacheExits > 0 then
             local reachable = {}
-            for _, ePos in ipairs(exitPositions) do
+            for _, ePos in ipairs(cacheExits) do
                 if flatDist(hrpPos, ePos) <= MAX_EXIT_DISTANCE then
                     table.insert(reachable, ePos)
                 end
