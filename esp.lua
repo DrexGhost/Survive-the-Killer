@@ -75,16 +75,14 @@ local function build()
             end
         end
 
-        if now - lastItemsScan >= 2 then
+        if now - lastItemsScan >= 1 then
             lastItemsScan = now
             if Core.settings.espItems then
                 local seen = {}
-                for _, obj in ipairs(workspace:GetDescendants()) do
-                    if obj:IsA("Model") or obj:IsA("BasePart") then
-                        if Core.isItem(obj) then
-                            seen[obj] = true
-                            ESPDisplay.add(obj, {color = T.green, distance = true})
-                        end
+                for _, obj in ipairs(Core.getLootItems()) do
+                    if obj and obj.Parent then
+                        seen[obj] = true
+                        ESPDisplay.add(obj, {color = T.green, distance = true})
                     end
                 end
                 for obj in pairs(trackedItems) do
