@@ -19,7 +19,7 @@ local function refreshAllUI()
 end
 
 local function build()
-    local tab = GUI.makeTab("Settings", 5, "settings")
+    local tab = GUI.makeTab("Settings", 6, "settings")
     local page = GUI.makePage()
 
     GUI.makeSectionHeader(page, "Configs", 1)
