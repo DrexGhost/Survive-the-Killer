@@ -71,6 +71,22 @@ function Core.bindCharacter(c)
         task.defer(Core.enforceNoclip)
     end
 end
+
+function Core.syncCharacter()
+    local char = LocalPlayer.Character
+    if not char then return end
+    if Core.Char ~= char then
+        Core.Char = char
+        Core.HRP = char:FindFirstChild("HumanoidRootPart")
+        Core.Hum = char:FindFirstChild("Humanoid")
+        Core.SavedCollide = {}
+        Core.NoclipActive = false
+    elseif not Core.HRP or not Core.HRP.Parent then
+        Core.HRP = char:FindFirstChild("HumanoidRootPart")
+        Core.Hum = char:FindFirstChild("Humanoid")
+    end
+end
+
 if LocalPlayer.Character then Core.bindCharacter(LocalPlayer.Character) end
 LocalPlayer.CharacterAdded:Connect(Core.bindCharacter)
 
