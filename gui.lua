@@ -89,7 +89,7 @@ makeCorner(logoBox, 9)
 local logoText = Instance.new("TextLabel")
 logoText.Size = UDim2.new(1, 0, 1, 0)
 logoText.BackgroundTransparency = 1
-logoText.Text = "N"
+logoText.Text = "S"
 logoText.TextColor3 = Color3.fromRGB(10, 14, 24)
 logoText.TextSize = 20
 logoText.Font = Enum.Font.GothamBlack
@@ -537,21 +537,55 @@ floatBtn.AnchorPoint = Vector2.new(0, 0.5)
 floatBtn.Position = UDim2.new(Core.settings.floatBtnPos[1] or 0, Core.settings.floatBtnPos[2] or 20, Core.settings.floatBtnPos[3] or 0.5, Core.settings.floatBtnPos[4] or 0)
 floatBtn.BackgroundColor3 = T.bg1
 floatBtn.BorderSizePixel = 0
-floatBtn.Text = "N"
-floatBtn.TextColor3 = T.accent
-floatBtn.TextSize = 24
-floatBtn.Font = Enum.Font.GothamBlack
+floatBtn.Text = ""
 floatBtn.AutoButtonColor = false
 floatBtn.ClipsDescendants = true
 floatBtn.Parent = screenGui
 makeCorner(floatBtn, 14)
 
+local fbGrad = Instance.new("UIGradient", floatBtn)
+fbGrad.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(26, 34, 54)), ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 14, 26))})
+fbGrad.Rotation = 135
 local fbStroke = makeStroke(floatBtn, T.accent, 1.5, 0.3)
 
+local barContainer = Instance.new("Frame", floatBtn)
+barContainer.Size = UDim2.new(0, 32, 1, -18)
+barContainer.Position = UDim2.new(0.5, -16, 0.5, 0)
+barContainer.AnchorPoint = Vector2.new(0, 0.5)
+barContainer.BackgroundTransparency = 1
+
+local barLayout = Instance.new("UIListLayout", barContainer)
+barLayout.FillDirection = Enum.FillDirection.Horizontal
+barLayout.Padding = UDim.new(0, 3)
+barLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+
+local bars = {}
+for i = 1, 5 do
+    local bar = Instance.new("Frame", barContainer)
+    bar.Size = UDim2.new(0, 4, 0.3, 0)
+    bar.BackgroundColor3 = T.accent
+    bar.BorderSizePixel = 0
+    makeCorner(bar, 10)
+    table.insert(bars, {frame = bar, phase = i * 0.8})
+end
+
+local eqHovered = false
+RunService.Heartbeat:Connect(function()
+    if not floatBtn.Parent or not floatBtn.Visible then return end
+    local t = tick()
+    local speed = eqHovered and 6 or 3
+    for _, b in ipairs(bars) do
+        local v = (math.sin(t * speed + b.phase) + 1) / 2
+        b.frame.Size = UDim2.new(0, 4, 0.2 + v * 0.75, 0)
+    end
+end)
+
 floatBtn.MouseEnter:Connect(function()
+    eqHovered = true
     TweenService:Create(fbStroke, TweenInfo.new(0.15), {Color = T.accentSoft, Transparency = 0}):Play()
 end)
 floatBtn.MouseLeave:Connect(function()
+    eqHovered = false
     TweenService:Create(fbStroke, TweenInfo.new(0.15), {Color = T.accent, Transparency = 0.3}):Play()
 end)
 
@@ -639,6 +673,6 @@ UIS.InputEnded:Connect(function(input)
 end)
 
 closeBtn.MouseButton1Click:Connect(GUI.close)
-UIS.InputBegan:Connect(function(input, gp) if not gp and input.KeyCode == Enum.KeyCode.LeftAlt then if isOpen then GUI.close() else GUI.open() end end end)
+UIS.InputBegan:Connect(function(input, gp) if not gp and input.KeyCode == Enum.KeyCode.LeftAlt then if isOpen then GUI.close() else GUI.open() end end):Connect end)
 
 return GUI
