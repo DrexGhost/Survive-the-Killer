@@ -42,6 +42,20 @@ local function build()
         Core.settings.ignoreMurderRadius = v
     end, "ignoreMurderRadius")
 
+    local function flatDist(a, b)
+        local dx = a.X - b.X
+        local dz = a.Z - b.Z
+        return math.sqrt(dx * dx + dz * dz)
+    end
+
+    local function flatDir(from, to)
+        local dx = to.X - from.X
+        local dz = to.Z - from.Z
+        local len = math.sqrt(dx * dx + dz * dz)
+        if len < 0.01 then return Vector3.zero end
+        return Vector3.new(dx / len, 0, dz / len)
+    end
+
     local function getKillerPositions()
         local positions = {}
         for _, p in ipairs(Players:GetPlayers()) do
@@ -58,43 +72,54 @@ local function build()
     end
 
     local function lineHitsCircle(a, b, center, radius)
-        local ab = b - a
-        local abLenSq = ab:Dot(ab)
+        local abx = b.X - a.X
+        local abz = b.Z - a.Z
+        local abLenSq = abx * abx + abz * abz
         if abLenSq < 0.0001 then return false end
-        local ac = center - a
-        local t = ac:Dot(ab) / abLenSq
+        local acx = center.X - a.X
+        local acz = center.Z - a.Z
+        local t = (acx * abx + acz * abz) / abLenSq
         if t <= 0 or t >= 1 then return false end
-        local proj = a + ab * t
-        return (proj - center).Magnitude < radius
+        local projx = a.X + abx * t
+        local projz = a.Z + abz * t
+        local dx = projx - center.X
+        local dz = projz - center.Z
+        return math.sqrt(dx * dx + dz * dz) < radius
     end
 
     local detour = nil
 
     local function pickDetourSide(hrpPos, targetPos, kPos, radius)
-        local toKiller = Vector3.new(kPos.X - hrpPos.X, 0, kPos.Z - hrpPos.Z)
-        if toKiller.Magnitude < 0.01 then
-            toKiller = Vector3.new(1, 0, 0)
-        end
-        toKiller = toKiller.Unit
+        local toKX = kPos.X - hrpPos.X
+        local toKZ = kPos.Z - hrpPos.Z
+        local len = math.sqrt(toKX * toKX + toKZ * toKZ)
+        if len < 0.01 then toKX, toKZ, len = 1, 0, 1 end
+        toKX = toKX / len
+        toKZ = toKZ / len
 
-        local leftPerp = Vector3.new(-toKiller.Z, 0, toKiller.X)
-        local rightPerp = Vector3.new(toKiller.Z, 0, -toKiller.X)
+        local leftPX, leftPZ = -toKZ, toKX
+        local rightPX, rightPZ = toKZ, -toKX
 
-        local targetFlat = Vector3.new(targetPos.X - hrpPos.X, 0, targetPos.Z - hrpPos.Z)
-        if targetFlat.Magnitude < 0.01 then targetFlat = Vector3.new(0, 0, 1) end
-        targetFlat = targetFlat.Unit
+        local tX = targetPos.X - hrpPos.X
+        local tZ = targetPos.Z - hrpPos.Z
+        local tLen = math.sqrt(tX * tX + tZ * tZ)
+        if tLen < 0.01 then tX, tZ, tLen = 0, 1, 1 end
+        tX = tX / tLen
+        tZ = tZ / tLen
 
-        local leftDot = leftPerp:Dot(targetFlat)
-        local rightDot = rightPerp:Dot(targetFlat)
+        local leftDot = leftPX * tX + leftPZ * tZ
+        local rightDot = rightPX * tX + rightPZ * tZ
 
-        local perp
+        local perpX, perpZ
         if math.abs(leftDot) >= math.abs(rightDot) then
-            perp = leftDot >= 0 and leftPerp or -leftPerp
+            perpX = leftDot >= 0 and leftPX or -leftPX
+            perpZ = leftDot >= 0 and leftPZ or -leftPZ
         else
-            perp = rightDot >= 0 and rightPerp or -rightPerp
+            perpX = rightDot >= 0 and rightPX or -rightPX
+            perpZ = rightDot >= 0 and rightPZ or -rightPZ
         end
 
-        return Vector3.new(kPos.X + perp.X * (radius + 5), kPos.Y, kPos.Z + perp.Z * (radius + 5))
+        return Vector3.new(kPos.X + perpX * (radius + 5), hrpPos.Y, kPos.Z + perpZ * (radius + 5))
     end
 
     local function clearDetour()
@@ -121,7 +146,7 @@ local function build()
         end
 
         if detour then
-            local distToDetour = (hrpPos - detour.target).Magnitude
+            local distToDetour = flatDist(hrpPos, detour.target)
             local reached = distToDetour < 6
             local expired = now >= detour.expires
 
@@ -130,7 +155,7 @@ local function build()
 
             if not reached and not expired then
                 for _, kPos in ipairs(killerPositions) do
-                    if (detour.target - kPos).Magnitude <= radius then
+                    if flatDist(detour.target, kPos) <= radius then
                         targetSafe = false
                         break
                     end
@@ -204,7 +229,7 @@ local function build()
                         local skip = false
                         if killerPositions then
                             for _, kPos in ipairs(killerPositions) do
-                                if (pos - kPos).Magnitude <= ignoreRadius then
+                                if flatDist(pos, kPos) <= ignoreRadius then
                                     skip = true
                                     break
                                 end
@@ -221,17 +246,15 @@ local function build()
         if not nearestPos then
             clearDetour()
             if killerPositions and #killerPositions > 0 then
-                local escapeDir = nil
+                local escapeVec = nil
                 for _, kPos in ipairs(killerPositions) do
-                    if (hrpPos - kPos).Magnitude < ignoreRadius then
-                        local away = hrpPos - kPos
-                        if away.Magnitude < 0.01 then away = Vector3.new(0, 0, 1) end
-                        escapeDir = away.Unit
+                    if flatDist(hrpPos, kPos) < ignoreRadius then
+                        escapeVec = flatDir(kPos, hrpPos)
                         break
                     end
                 end
-                if escapeDir then
-                    bodyVel.Velocity = escapeDir * speed
+                if escapeVec and escapeVec.Magnitude > 0.01 then
+                    bodyVel.Velocity = escapeVec * speed
                     return
                 end
             end
@@ -250,11 +273,12 @@ local function build()
 
         if killerPositions and #killerPositions > 0 then
             for _, kPos in ipairs(killerPositions) do
-                if (hrpPos - kPos).Magnitude < ignoreRadius then
-                    local away = hrpPos - kPos
-                    if away.Magnitude < 0.01 then away = Vector3.new(0, 0, 1) end
-                    bodyVel.Velocity = away.Unit * speed
-                    return
+                if flatDist(hrpPos, kPos) < ignoreRadius then
+                    local escapeVec = flatDir(kPos, hrpPos)
+                    if escapeVec.Magnitude > 0.01 then
+                        bodyVel.Velocity = escapeVec * speed
+                        return
+                    end
                 end
             end
 
@@ -266,12 +290,12 @@ local function build()
             clearDetour()
         end
 
-        local toTarget = moveTarget - hrpPos
-        if toTarget.Magnitude < 0.01 then
+        local dir = flatDir(hrpPos, moveTarget)
+        if dir.Magnitude < 0.01 then
             bodyVel.Velocity = Vector3.zero
             return
         end
-        bodyVel.Velocity = toTarget.Unit * speed
+        bodyVel.Velocity = dir * speed
     end)
 
     tab.Button.MouseButton1Click:Connect(function() GUI.switchTab(tab, page) end)
