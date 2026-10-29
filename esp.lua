@@ -51,6 +51,7 @@ local function build()
 
     local lastUpdate = 0
     local lastItemsScan = 0
+    local lastItemCheck = 0
     local trackedItems = {}
 
     RunService.Heartbeat:Connect(function()
@@ -103,6 +104,25 @@ local function build()
                     ESPDisplay.remove(obj)
                 end
                 trackedItems = {}
+            end
+        end
+
+        if Core.settings.espItems and now - lastItemCheck >= 0.1 then
+            lastItemCheck = now
+            for obj in pairs(trackedItems) do
+                if not obj or not obj.Parent then
+                    ESPDisplay.remove(obj)
+                    trackedItems[obj] = nil
+                else
+                    local okLoot, loot = pcall(function() return obj:GetAttribute("Loot") end)
+                    if okLoot and typeof(loot) == "string" and loot == "" then
+                        ESPDisplay.remove(obj)
+                        trackedItems[obj] = nil
+                    elseif not Core.isLootVisible(obj) then
+                        ESPDisplay.remove(obj)
+                        trackedItems[obj] = nil
+                    end
+                end
             end
         end
     end)
