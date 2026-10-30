@@ -21,6 +21,7 @@ local function build()
     local REVIVE_BLACKLIST_TIME = 10
     local REVIVE_STUCK_TIME = 5
     local DOWNED_FLY_STEP = 100 / 60
+    local ESCAPE_RADIUS = 5 -- Жесткий радиус побега от убийцы
 
     local exitWiggleActive = false
     local lastExitWiggleTime = 0
@@ -570,9 +571,10 @@ local function build()
             return
         end
 
+        -- ИСПОЛЬЗУЕМ ESCAPE_RADIUS ДЛЯ ПОБЕГА (ЖЕСТКО 5)
         if #killerPositions > 0 then
             for _, kPos in ipairs(killerPositions) do
-                if flatDist(hrpPos, kPos) < ignoreRadius then
+                if flatDist(hrpPos, kPos) < ESCAPE_RADIUS then
                     clearDetour()
                     local escapeVec = flatDir(kPos, hrpPos)
                     if escapeVec.Magnitude > 0.01 then
