@@ -659,7 +659,7 @@ local function build()
                 if currentReviveTarget ~= target.player then
                     currentReviveTarget = target.player
                     currentReviveStart = now
-                elseif now - currentReviveStart > REVIVE_STUCK_TIME then
+                elseif dist < 10 and now - currentReviveStart > REVIVE_STUCK_TIME then
                     reviveBlacklist[target.player] = now + REVIVE_BLACKLIST_TIME
                     currentReviveTarget = nil
                     target = nil
@@ -677,6 +677,22 @@ local function build()
                     end
                 else
                     local moveTarget = target.pos
+                    
+                    local obs = {}
+                    for _, kPos in ipairs(killerPositions) do
+                        table.insert(obs, { pos = kPos, radius = ignoreRadius })
+                    end
+                    for _, tPos in ipairs(trapPositions) do
+                        table.insert(obs, { pos = tPos, radius = TRAP_AVOID_RADIUS })
+                    end
+
+                    if #obs > 0 then
+                        local detourPos = updateDetour(hrpPos, target.pos, obs, now)
+                        if detourPos then moveTarget = detourPos end
+                    else
+                        clearDetour()
+                    end
+
                     local dir = flatDir(hrpPos, moveTarget)
                     if dir.Magnitude < 0.01 then
                         bodyVel.Velocity = Vector3.zero
