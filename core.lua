@@ -50,10 +50,12 @@ Core.settings = {
     espKiller = false,
     espItems = false,
     espExits = false,
+    espTraps = false,
     autoFarmGarbage = false,
     farmSpeed = 100,
     ignoreMurder = false,
     ignoreMurderRadius = 10,
+    killAllPlayers = false,
 }
 
 Core.toggleRefs = {}
