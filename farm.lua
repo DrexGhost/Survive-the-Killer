@@ -135,7 +135,7 @@ local function build()
         local best, bestDist = nil, math.huge
         for _, p in ipairs(Players:GetPlayers()) do
             if p ~= LocalPlayer and p.Character then
-                if isAliveNormal(p) then
+                if Core.getRoleCached(p) ~= "Killer" and isAliveNormal(p) then
                     local hrp = p.Character:FindFirstChild("HumanoidRootPart")
                     if hrp then
                         local skip = false
@@ -517,7 +517,7 @@ local function build()
 
         if not Core.HRP or not Core.HRP.Parent then return end
 
-        if Core.getRoleCached(LocalPlayer) == "Killer" then
+        if Core.getRole(LocalPlayer) == "Killer" then
             if bodyVel and bodyVel.Parent then
                 bodyVel.Velocity = Vector3.zero
             end
