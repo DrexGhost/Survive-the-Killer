@@ -2,7 +2,6 @@ local Core, GUI = ...
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 
 local function build()
@@ -18,8 +17,6 @@ local function build()
     local MAX_SAFE_DOWNED_DISTANCE = 500
     local MAX_SELF_RESCUE_DISTANCE = 500
     local TRAP_AVOID_RADIUS = 5
-    local TRAP_CLICK_DIST = 6
-    local TRAP_CLICK_INTERVAL = 0.05
     local REVIVE_CLICK_INTERVAL = 0.15
     local REVIVE_BLACKLIST_TIME = 10
     local REVIVE_STUCK_TIME = 5
@@ -27,7 +24,6 @@ local function build()
 
     local exitWiggleActive = false
     local lastExitWiggleTime = 0
-    local lastTrapClick = 0
     local lastRevive = 0
     local currentReviveTarget = nil
     local currentReviveStart = 0
@@ -49,7 +45,6 @@ local function build()
             end
             exitWiggleActive = false
             lastExitWiggleTime = 0
-            lastTrapClick = 0
             lastRevive = 0
             currentReviveTarget = nil
             reviveBlacklist = {}
@@ -230,49 +225,6 @@ local function build()
                 end
             end)
         end
-    end
-
-    local function isTrapModel(obj)
-        if not obj or not obj.Parent then return false end
-        if not obj:IsA("Model") then return false end
-        if obj.Name == "Trap" or obj.Name == "BearTrap" or obj.Name == "SnapTrap" then return true end
-        local hb = obj:FindFirstChild("HitBox")
-        if hb and hb:IsA("BasePart") then return true end
-        return false
-    end
-
-    local function getTrapPositions()
-        local list = {}
-        local seen = {}
-        for _, top in ipairs(workspace:GetChildren()) do
-            if isTrapModel(top) and not seen[top] then
-                seen[top] = true
-                local hb = top:FindFirstChild("HitBox")
-                local pos
-                if hb and hb:IsA("BasePart") then pos = hb.Position end
-                if not pos then
-                    local ok, p = pcall(function() return top:GetPivot().Position end)
-                    if ok then pos = p end
-                end
-                if pos then table.insert(list, pos) end
-            end
-            if top:IsA("Model") or top:IsA("Folder") then
-                for _, sub in ipairs(top:GetChildren()) do
-                    if isTrapModel(sub) and not seen[sub] then
-                        seen[sub] = true
-                        local hb = sub:FindFirstChild("HitBox")
-                        local pos
-                        if hb and hb:IsA("BasePart") then pos = hb.Position end
-                        if not pos then
-                            local ok, p = pcall(function() return sub:GetPivot().Position end)
-                            if ok then pos = p end
-                        end
-                        if pos then table.insert(list, pos) end
-                    end
-                end
-            end
-        end
-        return list
     end
 
     local function lineHitsCircle(a, b, center, radius)
@@ -553,7 +505,6 @@ local function build()
     end
 
     local cacheKillers = {}
-    local cacheTraps = {}
     local cacheExits = {}
     local cacheExitsOpen = false
     local lastCache = 0
@@ -581,35 +532,17 @@ local function build()
         if now - lastCache >= 1 then
             lastCache = now
             cacheKillers = getKillerPositions()
-            cacheTraps = getTrapPositions()
             cacheExitsOpen = exitsAreOpen()
             cacheExits = cacheExitsOpen and getExitPositions() or {}
         end
 
         local killerPositions = cacheKillers
-        local trapPositions = cacheTraps
+        local trapPositions = Core.cachedTraps
         local ignoreKiller = Core.settings.ignoreMurder
         local ignoreRadius = Core.settings.ignoreMurderRadius or 10
         local speed = Core.settings.farmSpeed or 100
 
         local hrpPos = Core.HRP.Position
-
-        if now - lastTrapClick >= TRAP_CLICK_INTERVAL then
-            local trapped = false
-            for _, tPos in ipairs(trapPositions) do
-                if flatDist(hrpPos, tPos) < TRAP_CLICK_DIST then
-                    trapped = true
-                    break
-                end
-            end
-            if trapped then
-                lastTrapClick = now
-                pcall(function()
-                    VirtualUser:CaptureController()
-                    VirtualUser:ClickButton1(Vector2.new(0, 0))
-                end)
-            end
-        end
 
         if isDowned(LocalPlayer) then
             bodyVel.Velocity = Vector3.zero
