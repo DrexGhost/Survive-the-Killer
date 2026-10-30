@@ -3,6 +3,7 @@ local HttpService = game:GetService("HttpService")
 local RS = game:GetService("ReplicatedStorage")
 local CollectionService = game:GetService("CollectionService")
 local VirtualUser = game:GetService("VirtualUser")
+local VirtualInputManager = game:GetService("VirtualInputManager")
 
 local LocalPlayer = Players.LocalPlayer
 local Core = {}
@@ -430,15 +431,18 @@ task.spawn(function()
             for _, tPos in ipairs(Core.cachedTraps) do
                 local dx = hrpPos.X - tPos.X
                 local dz = hrpPos.Z - tPos.Z
-                if math.sqrt(dx*dx + dz*dz) < 6 then
+                if math.sqrt(dx*dx + dz*dz) < 5 then
                     trapped = true
                     break
                 end
             end
             if trapped then
                 pcall(function()
-                    VirtualUser:CaptureController()
-                    VirtualUser:ClickButton1(Vector2.new(0, 0))
+                    local vp = workspace.CurrentCamera.ViewportSize
+                    local cx = math.floor(vp.X / 2)
+                    local cy = math.floor(vp.Y / 2)
+                    VirtualInputManager:SendMouseButtonEvent(cx, cy, 0, true, game, 0)
+                    VirtualInputManager:SendMouseButtonEvent(cx, cy, 0, false, game, 0)
                 end)
             end
         end
