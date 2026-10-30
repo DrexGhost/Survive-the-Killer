@@ -2,6 +2,7 @@ local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
 local RS = game:GetService("ReplicatedStorage")
 local CollectionService = game:GetService("CollectionService")
+local VirtualUser = game:GetService("VirtualUser")
 
 local LocalPlayer = Players.LocalPlayer
 local Core = {}
@@ -68,6 +69,7 @@ Core.remotes = {}
 Core.itemPatterns = {"coin", "gem", "chest", "crate", "knife", "item", "loot", "pickup", "drop", "candy"}
 Core._roleCache = {}
 Core._charParts = nil
+Core.cachedTraps = {}
 
 function Core.bindCharacter(c)
     Core.Char = c
@@ -362,12 +364,83 @@ function Core.getLootItems()
     return list
 end
 
-local vu = game:GetService("VirtualUser")
+function Core.isTrapModel(obj)
+    if not obj or not obj.Parent then return false end
+    if not obj:IsA("Model") then return false end
+    if obj.Name == "Trap" or obj.Name == "BearTrap" or obj.Name == "SnapTrap" then return true end
+    local hb = obj:FindFirstChild("HitBox")
+    if hb and hb:IsA("BasePart") then return true end
+    return false
+end
+
+function Core.getTrapPositions()
+    local list = {}
+    local seen = {}
+    for _, top in ipairs(workspace:GetChildren()) do
+        if Core.isTrapModel(top) and not seen[top] then
+            seen[top] = true
+            local hb = top:FindFirstChild("HitBox")
+            local pos
+            if hb and hb:IsA("BasePart") then pos = hb.Position end
+            if not pos then
+                local ok, p = pcall(function() return top:GetPivot().Position end)
+                if ok then pos = p end
+            end
+            if pos then table.insert(list, pos) end
+        end
+        if top:IsA("Model") or top:IsA("Folder") then
+            for _, sub in ipairs(top:GetChildren()) do
+                if Core.isTrapModel(sub) and not seen[sub] then
+                    seen[sub] = true
+                    local hb = sub:FindFirstChild("HitBox")
+                    local pos
+                    if hb and hb:IsA("BasePart") then pos = hb.Position end
+                    if not pos then
+                        local ok, p = pcall(function() return sub:GetPivot().Position end)
+                        if ok then pos = p end
+                    end
+                    if pos then table.insert(list, pos) end
+                end
+            end
+        end
+    end
+    return list
+end
+
 task.spawn(function()
     while task.wait(60) do
         if Core.settings.antiAfk then
-            vu:CaptureController()
-            vu:ClickButton2(Vector2.new())
+            VirtualUser:CaptureController()
+            VirtualUser:ClickButton2(Vector2.new())
+        end
+    end
+end)
+
+task.spawn(function()
+    while task.wait(1) do
+        Core.cachedTraps = Core.getTrapPositions()
+    end
+end)
+
+task.spawn(function()
+    while task.wait(0.05) do
+        if Core.HRP and Core.HRP.Parent then
+            local hrpPos = Core.HRP.Position
+            local trapped = false
+            for _, tPos in ipairs(Core.cachedTraps) do
+                local dx = hrpPos.X - tPos.X
+                local dz = hrpPos.Z - tPos.Z
+                if math.sqrt(dx*dx + dz*dz) < 6 then
+                    trapped = true
+                    break
+                end
+            end
+            if trapped then
+                pcall(function()
+                    VirtualUser:CaptureController()
+                    VirtualUser:ClickButton1(Vector2.new(0, 0))
+                end)
+            end
         end
     end
 end)
