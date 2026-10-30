@@ -181,11 +181,9 @@ local function build()
                 tryAttack()
             end
         else
-            local dx = target.pos.X - hrpPos.X
-            local dz = target.pos.Z - hrpPos.Z
-            local len = math.sqrt(dx * dx + dz * dz)
-            if len > 0.01 then
-                bodyVel.Velocity = Vector3.new(dx / len, 0, dz / len) * KILL_SPEED
+            local moveDir = target.pos - hrpPos
+            if moveDir.Magnitude > 0.01 then
+                bodyVel.Velocity = moveDir.Unit * KILL_SPEED
             else
                 bodyVel.Velocity = Vector3.zero
             end
