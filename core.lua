@@ -56,6 +56,7 @@ Core.settings = {
     ignoreMurder = false,
     ignoreMurderRadius = 10,
     killAllPlayers = false,
+    safeDowned = false,
 }
 
 Core.toggleRefs = {}
