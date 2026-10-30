@@ -2,6 +2,7 @@ local Core, GUI = ...
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 
 local function build()
@@ -14,9 +15,13 @@ local function build()
     local bodyVel = nil
     local MAX_LOOT_DISTANCE = 500
     local MAX_EXIT_DISTANCE = 500
+    local TRAP_AVOID_RADIUS = 5
+    local TRAP_CLICK_DIST = 6
+    local TRAP_CLICK_INTERVAL = 0.05
 
     local exitWiggleActive = false
     local lastExitWiggleTime = 0
+    local lastTrapClick = 0
 
     GUI.makeToggle(page, "Auto Farm (Garbage)", "Авто фарм мусора", Core.settings.autoFarmGarbage, 2, function(v)
         Core.settings.autoFarmGarbage = v
@@ -34,6 +39,7 @@ local function build()
             end
             exitWiggleActive = false
             lastExitWiggleTime = 0
+            lastTrapClick = 0
         end
     end, "autoFarmGarbage")
 
@@ -78,6 +84,49 @@ local function build()
         return positions
     end
 
+    local function isTrapModel(obj)
+        if not obj or not obj.Parent then return false end
+        if not obj:IsA("Model") then return false end
+        if obj.Name == "Trap" or obj.Name == "BearTrap" or obj.Name == "SnapTrap" then return true end
+        local hb = obj:FindFirstChild("HitBox")
+        if hb and hb:IsA("BasePart") then return true end
+        return false
+    end
+
+    local function getTrapPositions()
+        local list = {}
+        local seen = {}
+        for _, top in ipairs(workspace:GetChildren()) do
+            if isTrapModel(top) and not seen[top] then
+                seen[top] = true
+                local hb = top:FindFirstChild("HitBox")
+                local pos
+                if hb and hb:IsA("BasePart") then pos = hb.Position end
+                if not pos then
+                    local ok, p = pcall(function() return top:GetPivot().Position end)
+                    if ok then pos = p end
+                end
+                if pos then table.insert(list, pos) end
+            end
+            if top:IsA("Model") or top:IsA("Folder") then
+                for _, sub in ipairs(top:GetChildren()) do
+                    if isTrapModel(sub) and not seen[sub] then
+                        seen[sub] = true
+                        local hb = sub:FindFirstChild("HitBox")
+                        local pos
+                        if hb and hb:IsA("BasePart") then pos = hb.Position end
+                        if not pos then
+                            local ok, p = pcall(function() return sub:GetPivot().Position end)
+                            if ok then pos = p end
+                        end
+                        if pos then table.insert(list, pos) end
+                    end
+                end
+            end
+        end
+        return list
+    end
+
     local function lineHitsCircle(a, b, center, radius)
         local abx = b.X - a.X
         local abz = b.Z - a.Z
@@ -94,9 +143,9 @@ local function build()
         return math.sqrt(dx * dx + dz * dz) < radius
     end
 
-    local function pickSideDir(hrpPos, targetPos, kPos)
-        local toKX = kPos.X - hrpPos.X
-        local toKZ = kPos.Z - hrpPos.Z
+    local function pickSideDir(hrpPos, targetPos, obstaclePos)
+        local toKX = obstaclePos.X - hrpPos.X
+        local toKZ = obstaclePos.Z - hrpPos.Z
         local len = math.sqrt(toKX * toKX + toKZ * toKZ)
         if len < 0.01 then toKX, toKZ, len = 1, 0, 1 end
         toKX = toKX / len
@@ -133,21 +182,21 @@ local function build()
         detour = nil
     end
 
-    local function updateDetour(hrpPos, targetPos, killerPositions, radius, now)
-        if not killerPositions or #killerPositions == 0 then
+    local function updateDetour(hrpPos, targetPos, obstacles, now)
+        if not obstacles or #obstacles == 0 then
             clearDetour()
             return nil
         end
 
-        local blockingKiller = nil
-        for _, kPos in ipairs(killerPositions) do
-            if lineHitsCircle(hrpPos, targetPos, kPos, radius) then
-                blockingKiller = kPos
+        local blocking = nil
+        for _, ob in ipairs(obstacles) do
+            if lineHitsCircle(hrpPos, targetPos, ob.pos, ob.radius) then
+                blocking = ob
                 break
             end
         end
 
-        if not blockingKiller then
+        if not blocking then
             clearDetour()
             return nil
         end
@@ -159,8 +208,8 @@ local function build()
 
             if not reached and not expired then
                 local targetSafe = true
-                for _, kPos in ipairs(killerPositions) do
-                    if flatDist(detour.target, kPos) <= radius then
+                for _, ob in ipairs(obstacles) do
+                    if flatDist(detour.target, ob.pos) <= ob.radius then
                         targetSafe = false
                         break
                     end
@@ -175,14 +224,14 @@ local function build()
 
         local side = detour and detour.side
         if not side then
-            side = pickSideDir(hrpPos, targetPos, blockingKiller)
+            side = pickSideDir(hrpPos, targetPos, blocking.pos)
         end
 
-        local offset = radius + 10
+        local offset = blocking.radius + 10
         local newTarget = Vector3.new(
-            blockingKiller.X + side.X * offset,
+            blocking.pos.X + side.X * offset,
             hrpPos.Y,
-            blockingKiller.Z + side.Z * offset
+            blocking.pos.Z + side.Z * offset
         )
 
         detour = {
@@ -356,6 +405,7 @@ local function build()
     end
 
     local cacheKillers = {}
+    local cacheTraps = {}
     local cacheExits = {}
     local cacheExitsOpen = false
     local lastCache = 0
@@ -383,15 +433,34 @@ local function build()
         if now - lastCache >= 1 then
             lastCache = now
             cacheKillers = getKillerPositions()
+            cacheTraps = getTrapPositions()
             cacheExitsOpen = exitsAreOpen()
             cacheExits = cacheExitsOpen and getExitPositions() or {}
         end
 
         local killerPositions = cacheKillers
+        local trapPositions = cacheTraps
         local ignoreRadius = Core.settings.ignoreMurderRadius or 10
         local speed = Core.settings.farmSpeed or 100
 
         local hrpPos = Core.HRP.Position
+
+        if now - lastTrapClick >= TRAP_CLICK_INTERVAL then
+            local trapped = false
+            for _, tPos in ipairs(trapPositions) do
+                if flatDist(hrpPos, tPos) < TRAP_CLICK_DIST then
+                    trapped = true
+                    break
+                end
+            end
+            if trapped then
+                lastTrapClick = now
+                pcall(function()
+                    VirtualUser:CaptureController()
+                    VirtualUser:ClickButton1(Vector2.new(0, 0))
+                end)
+            end
+        end
 
         if exitWiggleActive then
             bodyVel.Velocity = Vector3.zero
@@ -411,6 +480,14 @@ local function build()
                     return
                 end
             end
+        end
+
+        local obstacles = {}
+        for _, kPos in ipairs(killerPositions) do
+            table.insert(obstacles, { pos = kPos, radius = ignoreRadius })
+        end
+        for _, tPos in ipairs(trapPositions) do
+            table.insert(obstacles, { pos = tPos, radius = TRAP_AVOID_RADIUS })
         end
 
         if cacheExitsOpen and #cacheExits > 0 then
@@ -457,8 +534,8 @@ local function build()
                     end
 
                     local moveTarget = bestExitPos
-                    if #killerPositions > 0 then
-                        local detourPos = updateDetour(hrpPos, bestExitPos, killerPositions, ignoreRadius, now)
+                    if #obstacles > 0 then
+                        local detourPos = updateDetour(hrpPos, bestExitPos, obstacles, now)
                         if detourPos then moveTarget = detourPos end
                     else
                         clearDetour()
@@ -526,8 +603,8 @@ local function build()
 
         local moveTarget = nearestPos
 
-        if #killerPositions > 0 then
-            local detourPos = updateDetour(hrpPos, nearestPos, killerPositions, ignoreRadius, now)
+        if #obstacles > 0 then
+            local detourPos = updateDetour(hrpPos, nearestPos, obstacles, now)
             if detourPos then
                 moveTarget = detourPos
             end
