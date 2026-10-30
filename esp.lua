@@ -52,6 +52,8 @@ local function build()
 
     local trackedExits = {}
     local lastExitScan = 0
+    local lastExitState = 0
+    local exitsOpenSource = nil
 
     local function readBool(v)
         if typeof(v) == "boolean" then return v end
@@ -94,30 +96,50 @@ local function build()
         return nil
     end
 
-    local function getExitsOpen(exitObj)
+    local function getGlobalExitSource()
         local sources = {
-            {obj = ReplicatedStorage:FindFirstChild("MatchInfo") and ReplicatedStorage.MatchInfo:FindFirstChild("ExitsOpen")},
-            {obj = ReplicatedStorage:FindFirstChild("ExitsOpen")},
-            {obj = workspace:FindFirstChild("ExitsOpen")},
+            {obj = ReplicatedStorage:FindFirstChild("MatchInfo") and ReplicatedStorage.MatchInfo:FindFirstChild("ExitsOpen"), name = "MatchInfo"},
+            {obj = ReplicatedStorage:FindFirstChild("ExitsOpen"), name = "RS"},
+            {obj = workspace:FindFirstChild("ExitsOpen"), name = "Workspace"},
         }
         local cm = workspace:FindFirstChild("CurrentMap")
         if cm then
-            table.insert(sources, {obj = cm:FindFirstChild("ExitsOpen")})
+            table.insert(sources, {obj = cm:FindFirstChild("ExitsOpen"), name = "CurrentMap"})
         end
-
         for _, s in ipairs(sources) do
             if s.obj then
                 local ok, v = pcall(function() return s.obj.Value end)
                 if ok then
                     local b = readBool(v)
-                    if b ~= nil then return b end
+                    if b ~= nil then return b, s.name end
                 end
             end
         end
+        return nil, nil
+    end
+
+    local function getExitsOpen(exitObj)
+        if exitsOpenSource then
+            local ok, v = pcall(function() return exitsOpenSource.Value end)
+            if ok then
+                local b = readBool(v)
+                if b ~= nil then return b end
+            else
+                exitsOpenSource = nil
+            end
+        end
+
+        local b, src = getGlobalExitSource()
+        if b ~= nil then
+            if src == "MatchInfo" then
+                exitsOpenSource = ReplicatedStorage.MatchInfo.ExitsOpen
+            end
+            return b
+        end
 
         if exitObj then
-            local b = checkExitObj(exitObj)
-            if b ~= nil then return b end
+            local cb = checkExitObj(exitObj)
+            if cb ~= nil then return cb end
         end
 
         return nil
@@ -158,25 +180,20 @@ local function build()
     end
 
     local function computeUnifiedState(found)
-        local anyTrue = false
         local anyFalse = false
         for obj in pairs(found) do
             local isOpen = getExitsOpen(obj)
-            if isOpen == true then
-                anyTrue = true
-                break
-            elseif isOpen == false then
-                anyFalse = true
-            end
+            if isOpen == true then return true end
+            if isOpen == false then anyFalse = true end
         end
-        if anyTrue then return true end
         if anyFalse then return false end
         return nil
     end
 
-    local function applyExits()
-        local found = scanExits()
-        local isOpen = computeUnifiedState(found)
+    local function applyExitColor()
+        if not Core.settings.espExits then return end
+
+        local isOpen = computeUnifiedState(trackedExits)
 
         local color, label
         if isOpen == true then
@@ -190,15 +207,23 @@ local function build()
             label = "EXIT (?)"
         end
 
-        for obj in pairs(found) do
-            ESPDisplay.add(obj, {
-                color = color,
-                name = label,
-                distance = true,
-                fillTransparency = 0.4,
-                outlineTransparency = 0,
-            })
+        for obj in pairs(trackedExits) do
+            if obj and obj.Parent then
+                ESPDisplay.add(obj, {
+                    color = color,
+                    name = label,
+                    distance = true,
+                    fillTransparency = 0.4,
+                    outlineTransparency = 0,
+                })
+            end
         end
+    end
+
+    local function refreshExitList()
+        if not Core.settings.espExits then return end
+
+        local found = scanExits()
 
         for obj in pairs(trackedExits) do
             if not found[obj] or not obj.Parent then
@@ -216,10 +241,71 @@ local function build()
                 ESPDisplay.remove(obj)
             end
             trackedExits = {}
+            exitsOpenSource = nil
         else
-            applyExits()
+            task.defer(function()
+                if not Core.settings.espExits then return end
+                refreshExitList()
+                applyExitColor()
+            end)
         end
     end, "espExits")
+
+    local trackedTraps = {}
+    local lastTrapScan = 0
+
+    local function isTrap(obj)
+        if not obj or not obj.Parent then return false end
+        if not obj:IsA("Model") then return false end
+        if obj.Name == "Trap" or obj.Name == "BearTrap" or obj.Name == "SnapTrap" then return true end
+        local hb = obj:FindFirstChild("HitBox")
+        if hb and hb:IsA("BasePart") then return true end
+        return false
+    end
+
+    local function getTraps()
+        local list = {}
+        local seen = {}
+        for _, top in ipairs(workspace:GetChildren()) do
+            if isTrap(top) and not seen[top] then
+                seen[top] = true
+                table.insert(list, top)
+            end
+            if top:IsA("Model") or top:IsA("Folder") then
+                for _, sub in ipairs(top:GetChildren()) do
+                    if isTrap(sub) and not seen[sub] then
+                        seen[sub] = true
+                        table.insert(list, sub)
+                    end
+                end
+            end
+        end
+        return list
+    end
+
+    GUI.makeToggle(page, "Esp Trap", "Показывает капканы", Core.settings.espTraps, 8, function(v)
+        Core.settings.espTraps = v
+        if not v then
+            for trap in pairs(trackedTraps) do
+                ESPDisplay.remove(trap)
+            end
+            trackedTraps = {}
+        else
+            task.defer(function()
+                if not Core.settings.espTraps then return end
+                for _, trap in ipairs(getTraps()) do
+                    trackedTraps[trap] = true
+                    ESPDisplay.add(trap, {
+                        color = T.warn,
+                        name = "TRAP",
+                        distance = true,
+                        fillTransparency = 0.4,
+                        outlineTransparency = 0,
+                    })
+                end
+            end)
+        end
+    end, "espTraps")
 
     local lastUpdate = 0
     local lastItemsScan = 0
@@ -298,9 +384,38 @@ local function build()
             end
         end
 
-        if Core.settings.espExits and now - lastExitScan >= 1 then
-            lastExitScan = now
-            applyExits()
+        if Core.settings.espExits then
+            if now - lastExitScan >= 3 then
+                lastExitScan = now
+                refreshExitList()
+            end
+            if now - lastExitState >= 1 then
+                lastExitState = now
+                applyExitColor()
+            end
+        end
+
+        if Core.settings.espTraps and now - lastTrapScan >= 2 then
+            lastTrapScan = now
+            local found = {}
+            for _, trap in ipairs(getTraps()) do
+                if trap and trap.Parent then
+                    found[trap] = true
+                    ESPDisplay.add(trap, {
+                        color = T.warn,
+                        name = "TRAP",
+                        distance = true,
+                        fillTransparency = 0.4,
+                        outlineTransparency = 0,
+                    })
+                end
+            end
+            for trap in pairs(trackedTraps) do
+                if not found[trap] or not trap.Parent then
+                    ESPDisplay.remove(trap)
+                end
+            end
+            trackedTraps = found
         end
     end)
 
