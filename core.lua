@@ -425,7 +425,7 @@ end)
 
 task.spawn(function()
     while task.wait(0.05) do
-        if Core.HRP and Core.HRP.Parent then
+        if Core.settings.autoFarmGarbage and Core.HRP and Core.HRP.Parent then
             local hrpPos = Core.HRP.Position
             local trapped = false
             for _, tPos in ipairs(Core.cachedTraps) do
