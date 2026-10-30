@@ -142,14 +142,16 @@ local function build()
 
         if not Core.HRP or not Core.HRP.Parent then return end
 
+        if not helperHadNoclip then
+            Core.enforceNoclip()
+        end
+
         if Core.getRoleCached(LocalPlayer) ~= "Killer" then
             if bodyVel and bodyVel.Parent then
                 bodyVel.Velocity = Vector3.zero
             end
             return
         end
-
-        Core.enforceNoclip()
 
         if not bodyVel or not bodyVel.Parent or bodyVel.Parent ~= Core.HRP then
             if bodyVel then bodyVel:Destroy() end
