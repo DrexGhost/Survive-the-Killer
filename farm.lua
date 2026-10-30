@@ -21,7 +21,7 @@ local function build()
     local REVIVE_BLACKLIST_TIME = 10
     local REVIVE_STUCK_TIME = 5
     local DOWNED_FLY_STEP = 100 / 60
-    local ESCAPE_RADIUS = 5 -- Жесткий радиус побега от убийцы
+    local ESCAPE_RADIUS = 5
 
     local exitWiggleActive = false
     local lastExitWiggleTime = 0
@@ -517,6 +517,15 @@ local function build()
 
         if not Core.HRP or not Core.HRP.Parent then return end
 
+        if Core.getRoleCached(LocalPlayer) == "Killer" then
+            if bodyVel and bodyVel.Parent then
+                bodyVel.Velocity = Vector3.zero
+            end
+            clearDetour()
+            currentReviveTarget = nil
+            return
+        end
+
         Core.enforceNoclip()
 
         if not bodyVel or not bodyVel.Parent or bodyVel.Parent ~= Core.HRP then
@@ -571,7 +580,6 @@ local function build()
             return
         end
 
-        -- ИСПОЛЬЗУЕМ ESCAPE_RADIUS ДЛЯ ПОБЕГА (ЖЕСТКО 5)
         if #killerPositions > 0 then
             for _, kPos in ipairs(killerPositions) do
                 if flatDist(hrpPos, kPos) < ESCAPE_RADIUS then
@@ -612,7 +620,7 @@ local function build()
                     end
                 else
                     local moveTarget = target.pos
-                    
+
                     local obs = {}
                     for _, kPos in ipairs(killerPositions) do
                         table.insert(obs, { pos = kPos, radius = ignoreRadius })
